@@ -8,16 +8,16 @@ export const theme = extendTheme({
   },
   colors: {
     brand: {
-      50: "#f5f3ff",
-      100: "#ede9fe",
-      200: "#ddd6fe",
-      300: "#c4b5fd",
-      400: "#a78bfa",
-      500: "#8b5cf6",
-      600: "#7c3aed",
-      700: "#6d28d9",
-      800: "#5b21b6",
-      900: "#4c1d95",
+      50: "#f0e7ff",
+      100: "#d9c7ff",
+      200: "#b69dff",
+      300: "#9b87f5", // New primary color
+      400: "#8b6cf6",
+      500: "#7c3aed",
+      600: "#6d28d9",
+      700: "#5b21b6",
+      800: "#4c1d95",
+      900: "#3a1674",
     },
     gray: {
       50: "#F9FAFB",
@@ -40,15 +40,15 @@ export const theme = extendTheme({
       },
       variants: {
         solid: {
-          bg: "brand.600",
+          bg: "brand.300",
           color: "white",
           _hover: {
-            bg: "brand.700",
+            bg: "brand.400",
           },
         },
         outline: {
-          borderColor: "brand.600",
-          color: "brand.600",
+          borderColor: "brand.300",
+          color: "brand.300",
         },
         ghost: {
           color: "gray.600",

@@ -11,6 +11,9 @@ import SpacesPage from './pages/SpacesPage';
 import SpaceDetailPage from './pages/SpaceDetailPage';
 import CreateSpacePage from './pages/CreateSpacePage';
 import ProfilePage from './pages/ProfilePage';
+import ScheduledPage from './pages/ScheduledPage';
+import FavoritesPage from './pages/FavoritesPage';
+import SettingsPage from './pages/SettingsPage';
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,6 +31,9 @@ const App = () => (
             <Route path="/space/:id" element={<SpaceDetailPage />} />
             <Route path="/create-space" element={<CreateSpacePage />} />
             <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/scheduled" element={<ScheduledPage />} />
+            <Route path="/favorites" element={<FavoritesPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

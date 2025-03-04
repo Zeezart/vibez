@@ -1,10 +1,13 @@
-import { useLocation } from "react-router-dom";
-import { useEffect } from "react";
 
-const NotFound = () => {
+import React from 'react';
+import { Box, Container, Heading, Text, Button, VStack } from '@chakra-ui/react';
+import { Link, useLocation } from 'react-router-dom';
+import Layout from '../components/Layout';
+
+const NotFound: React.FC = () => {
   const location = useLocation();
 
-  useEffect(() => {
+  React.useEffect(() => {
     console.error(
       "404 Error: User attempted to access non-existent route:",
       location.pathname
@@ -12,15 +15,22 @@ const NotFound = () => {
   }, [location.pathname]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
-      </div>
-    </div>
+    <Layout showSidebar={false}>
+      <Container maxW="xl" py={20} textAlign="center">
+        <VStack spacing={6}>
+          <Heading size="4xl" color="brand.300">404</Heading>
+          <Heading size="xl" mb={3}>Page Not Found</Heading>
+          <Text fontSize="lg" color="gray.600" mb={6}>
+            Sorry, the page you are looking for doesn't exist or has been moved.
+          </Text>
+          <Box>
+            <Button as={Link} to="/" colorScheme="purple" size="lg">
+              Return to Home
+            </Button>
+          </Box>
+        </VStack>
+      </Container>
+    </Layout>
   );
 };
 

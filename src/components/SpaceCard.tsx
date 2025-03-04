@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Box, 
   Heading, 
@@ -9,7 +9,8 @@ import {
   Avatar, 
   AvatarGroup, 
   IconButton,
-  useColorModeValue 
+  useColorModeValue,
+  useToast
 } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 import { StarIcon } from '@chakra-ui/icons';
@@ -36,12 +37,27 @@ export interface SpaceProps {
 }
 
 const SpaceCard: React.FC<{ space: SpaceProps }> = ({ space }) => {
+  const [isFavorite, setIsFavorite] = useState(space.isFavorite);
   const bgColor = useColorModeValue('white', 'gray.700');
   const statusColor = {
     live: 'green',
     scheduled: 'blue',
     ended: 'gray',
   }[space.status];
+  const toast = useToast();
+
+  const handleToggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsFavorite(!isFavorite);
+    
+    toast({
+      title: isFavorite ? "Removed from favorites" : "Added to favorites",
+      status: "success",
+      duration: 2000,
+      isClosable: true,
+    });
+  };
 
   return (
     <Box
@@ -71,12 +87,9 @@ const SpaceCard: React.FC<{ space: SpaceProps }> = ({ space }) => {
           aria-label="Favorite"
           icon={<StarIcon />}
           variant="ghost"
-          color={space.isFavorite ? 'yellow.500' : 'gray.400'}
+          color={isFavorite ? 'yellow.500' : 'gray.400'}
           size="sm"
-          onClick={(e) => {
-            e.preventDefault();
-            // Toggle favorite logic would go here
-          }}
+          onClick={handleToggleFavorite}
         />
       </Flex>
 
