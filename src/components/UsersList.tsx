@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Box, 
@@ -10,7 +9,7 @@ import {
   Badge,
   Tooltip
 } from '@chakra-ui/react';
-import { MicrophoneIcon } from '@chakra-ui/icons';
+import { Mic } from 'lucide-react';
 
 interface User {
   id: string;
@@ -67,7 +66,7 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
                     align="center"
                     justify="center"
                   >
-                    <MicrophoneIcon boxSize={3} color="white" />
+                    <Mic size={12} color="white" />
                   </Flex>
                 )}
               </Box>

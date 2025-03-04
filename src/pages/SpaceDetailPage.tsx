@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -24,18 +23,16 @@ import {
   ModalCloseButton,
 } from '@chakra-ui/react';
 import { 
-  MicrophoneIcon, 
   CalendarIcon, 
   StarIcon, 
-  ShareIcon,
-  InfoIcon
+  InfoIcon 
 } from '@chakra-ui/icons';
+import { Mic, Share2 } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import UsersList from '../components/UsersList';
 import { SpaceProps } from '../components/SpaceCard';
 
-// Mock data for a specific space
 const MOCK_SPACE: SpaceProps = {
   id: '1',
   title: 'Tech Talk: AI and the Future of Work',
@@ -55,7 +52,6 @@ const MOCK_SPACE: SpaceProps = {
   isFavorite: true,
 };
 
-// Mock users data for the room
 const MOCK_USERS = [
   { id: '1', name: 'Alex Johnson', username: 'alexj', image: 'https://bit.ly/dan-abramov', role: 'host' as const, isSpeaking: true, isMuted: false },
   { id: '2', name: 'Sarah Miller', username: 'sarahm', image: 'https://bit.ly/ryan-florence', role: 'speaker' as const, isSpeaking: false, isMuted: false },
@@ -80,8 +76,6 @@ const SpaceDetailPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // In a real app, this would be an API call
-    // For now, we'll simulate a delay and use mock data
     const timer = setTimeout(() => {
       setSpace(MOCK_SPACE);
       setUsers(MOCK_USERS);
@@ -123,7 +117,6 @@ const SpaceDetailPage: React.FC = () => {
   };
 
   const shareSpace = () => {
-    // In a real app, this would open a share dialog
     navigator.clipboard.writeText(window.location.href);
     toast({
       title: 'Link copied to clipboard',
@@ -176,7 +169,7 @@ const SpaceDetailPage: React.FC = () => {
                   />
                   <IconButton
                     aria-label="Share"
-                    icon={<ShareIcon />}
+                    icon={<Share2 size={20} />}
                     variant="ghost"
                     mr={2}
                     onClick={shareSpace}
@@ -233,7 +226,7 @@ const SpaceDetailPage: React.FC = () => {
               <Flex gap={4} justifyContent="center" mt={6}>
                 <Button
                   colorScheme={isMuted ? 'gray' : 'green'}
-                  leftIcon={<MicrophoneIcon />}
+                  leftIcon={<Mic size={20} />}
                   onClick={toggleMute}
                 >
                   {isMuted ? 'Unmute' : 'Mute'}
