@@ -27,11 +27,11 @@ import Sidebar from './Sidebar';
 
 const Navbar: React.FC = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { user, profile, logout } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    logout();
+    signOut();
     navigate('/');
   };
 

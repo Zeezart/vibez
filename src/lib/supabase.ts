@@ -1,6 +1,6 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Space, Profile, SpaceParticipant } from './supabase-types';
+import { Profile } from './supabase-types';
 
 // Get Supabase environment variables or use empty strings as fallbacks
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -22,23 +22,16 @@ const createSupabaseClient = () => {
     return createClient<{
       public: {
         Tables: {
-          spaces: {
-            Row: Space;
-          };
           profiles: {
             Row: Profile;
-          };
-          space_participants: {
-            Row: SpaceParticipant;
           };
         };
       };
     }>(supabaseUrl, supabaseAnonKey);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create Supabase client:', error);
     
     // Return a mock client that won't throw errors but won't work
-    // This allows the app to render without crashing
     return {
       auth: {
         getSession: async () => ({ data: { session: null } }),
