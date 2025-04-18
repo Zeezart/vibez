@@ -1,17 +1,15 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
-import { useToast } from '@chakra-ui/react';
+import { supabase } from '../integrations/supabase/client';
+import { useToast } from "@/components/ui/use-toast";
 import { Profile } from '../lib/supabase-types';
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, username: string, name: string) => Promise<void>;
-  logout: () => Promise<void>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,20 +18,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(true);
-  const toast = useToast();
+  const { toast } = useToast();
 
   useEffect(() => {
-    // Check if Supabase is properly initialized
-    const isMissingEnvVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
-    
-    if (isMissingEnvVars) {
-      setIsSupabaseConfigured(false);
-      console.error('Missing Supabase environment variables. Authentication will not work.');
-      setIsLoading(false);
-      return;
-    }
-
     // Check active sessions and subscribe to auth changes
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
@@ -41,26 +28,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchProfile(session.user.id);
       }
       setIsLoading(false);
-    }).catch(() => {
-      // Handle potential errors when getting the session
-      setIsLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
       }
     });
 
     return () => {
-      subscription?.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
   const fetchProfile = async (userId: string) => {
-    if (!isSupabaseConfigured) return;
-    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -68,142 +52,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', userId)
         .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-      } else {
-        setProfile(data);
-      }
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-    }
-  };
-
-  const login = async (email: string, password: string) => {
-    if (!isSupabaseConfigured) {
-      toast({
-        title: 'Supabase not configured',
-        description: 'Please connect to Supabase first.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
       if (error) throw error;
-      
-      toast({
-        title: 'Login successful',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
+      setProfile(data);
     } catch (error: any) {
       toast({
-        title: 'Login failed',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        title: "Error",
+        description: "Failed to fetch user profile",
+        variant: "destructive",
       });
-      throw error;
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const signup = async (email: string, password: string, username: string, name: string) => {
-    if (!isSupabaseConfigured) {
-      toast({
-        title: 'Supabase not configured',
-        description: 'Please connect to Supabase first.',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      return;
-    }
-    
-    setIsLoading(true);
-    try {
-      const { data: { user }, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      if (user) {
-        // Create profile
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .insert({
-            id: user.id,
-            username,
-            full_name: name,
-            updated_at: new Date().toISOString(),
-          });
-
-        if (profileError) throw profileError;
-      }
-
-      toast({
-        title: 'Sign up successful',
-        description: 'Please check your email for verification.',
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Sign up failed',
-        description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const logout = async () => {
-    if (!isSupabaseConfigured) return;
-    
+  const signOut = async () => {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      setUser(null);
-      setProfile(null);
-      
       toast({
-        title: 'Logged out successfully',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
+        title: "Success",
+        description: "You've been logged out successfully",
       });
     } catch (error: any) {
       toast({
-        title: 'Error logging out',
+        title: "Error",
         description: error.message,
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        variant: "destructive",
       });
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, profile, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
@@ -211,7 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

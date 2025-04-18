@@ -1,9 +1,9 @@
-
-import { ChakraProvider } from '@chakra-ui/react';
+import { BrowserRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { theme } from './theme';
 import { AuthProvider } from './context/AuthContext';
+import { Toaster } from "@/components/ui/toaster";
+import { ChakraProvider } from '@chakra-ui/react';
+import { theme } from './theme';
 import SupabaseInitCheck from './components/SupabaseInitCheck';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
@@ -38,6 +38,7 @@ const App = () => (
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Toaster />
         </BrowserRouter>
       </AuthProvider>
     </ChakraProvider>

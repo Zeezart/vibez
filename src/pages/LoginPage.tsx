@@ -1,80 +1,43 @@
 
 import React, { useState } from 'react';
-import {
-  Box,
-  Button,
-  FormControl,
-  FormLabel,
-  Input,
-  InputGroup,
-  InputRightElement,
-  Stack,
-  Heading,
-  Text,
-  Link as ChakraLink,
-  useToast,
-  Flex,
-  FormErrorMessage,
-} from '@chakra-ui/react';
-import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate, Link } from 'react-router-dom';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import Layout from '../components/Layout';
 
-const LoginPage: React.FC = () => {
+const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({ email: '', password: '' });
   const [isLoading, setIsLoading] = useState(false);
-  
-  const toast = useToast();
   const navigate = useNavigate();
-  const { login } = useAuth();
-
-  const validateForm = () => {
-    const newErrors = { email: '', password: '' };
-    let isValid = true;
-
-    if (!email) {
-      newErrors.email = 'Email is required';
-      isValid = false;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      newErrors.email = 'Email is invalid';
-      isValid = false;
-    }
-
-    if (!password) {
-      newErrors.password = 'Password is required';
-      isValid = false;
-    }
-
-    setErrors(newErrors);
-    return isValid;
-  };
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateForm()) return;
-    
     setIsLoading(true);
+
     try {
-      await login(email, password);
-      toast({
-        title: 'Login successful',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      navigate('/spaces');
-    } catch (error) {
+
+      if (error) throw error;
+
       toast({
-        title: 'Login failed',
-        description: 'Invalid email or password',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
+        title: "Success",
+        description: "You've been logged in successfully",
+      });
+      
+      navigate('/');
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -83,80 +46,46 @@ const LoginPage: React.FC = () => {
 
   return (
     <Layout showSidebar={false}>
-      <Flex minH={'80vh'} align={'center'} justify={'center'}>
-        <Stack spacing={8} mx={'auto'} maxW={'lg'} py={12} px={6}>
-          <Stack align={'center'}>
-            <Heading fontSize={'4xl'} textAlign={'center'}>
-              Sign in to your account
-            </Heading>
-            <Text fontSize={'lg'} color={'gray.600'}>
-              to enjoy all of our cool features ✌️
-            </Text>
-          </Stack>
-          <Box
-            rounded={'lg'}
-            bg={'white'}
-            boxShadow={'lg'}
-            p={8}
-            as="form"
-            onSubmit={handleSubmit}
-          >
-            <Stack spacing={4}>
-              <FormControl id="email" isInvalid={!!errors.email}>
-                <FormLabel>Email address</FormLabel>
-                <Input 
-                  type="email" 
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <FormErrorMessage>{errors.email}</FormErrorMessage>
-              </FormControl>
-              <FormControl id="password" isInvalid={!!errors.password}>
-                <FormLabel>Password</FormLabel>
-                <InputGroup>
-                  <Input
-                    type={showPassword ? 'text' : 'password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                  <InputRightElement h={'full'}>
-                    <Button
-                      variant={'ghost'}
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? <ViewIcon /> : <ViewOffIcon />}
-                    </Button>
-                  </InputRightElement>
-                </InputGroup>
-                <FormErrorMessage>{errors.password}</FormErrorMessage>
-              </FormControl>
-              <Stack spacing={10} pt={2}>
-                <Button
-                  loadingText="Signing in"
-                  size="lg"
-                  bg={'purple.600'}
-                  color={'white'}
-                  _hover={{
-                    bg: 'purple.700',
-                  }}
-                  type="submit"
-                  isLoading={isLoading}
-                >
-                  Sign in
-                </Button>
-              </Stack>
-              <Stack pt={6}>
-                <Text align={'center'}>
-                  Don't have an account?{' '}
-                  <ChakraLink as={Link} to="/signup" color={'purple.600'}>
-                    Sign up
-                  </ChakraLink>
-                </Text>
-              </Stack>
-            </Stack>
-          </Box>
-        </Stack>
-      </Flex>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="mx-auto max-w-[350px] space-y-6 p-4">
+          <div className="space-y-2 text-center">
+            <h1 className="text-2xl font-bold">Welcome back</h1>
+            <p className="text-gray-500">Enter your credentials to sign in</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="m@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? "Signing in..." : "Sign In"}
+            </Button>
+          </form>
+          <div className="text-center text-sm">
+            Don't have an account?{" "}
+            <Link to="/signup" className="text-blue-500 hover:text-blue-700">
+              Sign up
+            </Link>
+          </div>
+        </div>
+      </div>
     </Layout>
   );
 };
