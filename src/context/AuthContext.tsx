@@ -20,6 +20,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSupabaseConfigured, setIsSupabaseConfigured] = useState(true);
   const toast = useToast();
 
   useEffect(() => {
@@ -27,15 +28,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isMissingEnvVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
     
     if (isMissingEnvVars) {
+      setIsSupabaseConfigured(false);
       console.error('Missing Supabase environment variables. Authentication will not work.');
       setIsLoading(false);
-      toast({
-        title: 'Configuration Error',
-        description: 'Missing Supabase configuration. Please set up your environment variables.',
-        status: 'error',
-        duration: 9000,
-        isClosable: true,
-      });
       return;
     }
 
@@ -46,6 +41,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchProfile(session.user.id);
       }
       setIsLoading(false);
+    }).catch(() => {
+      // Handle potential errors when getting the session
+      setIsLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -55,24 +53,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    if (!isSupabaseConfigured) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
 
-    if (error) {
-      console.error('Error fetching profile:', error);
-    } else {
-      setProfile(data);
+      if (error) {
+        console.error('Error fetching profile:', error);
+      } else {
+        setProfile(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch profile:', error);
     }
   };
 
   const login = async (email: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      toast({
+        title: 'Supabase not configured',
+        description: 'Please connect to Supabase first.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -103,6 +120,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signup = async (email: string, password: string, username: string, name: string) => {
+    if (!isSupabaseConfigured) {
+      toast({
+        title: 'Supabase not configured',
+        description: 'Please connect to Supabase first.',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { data: { user }, error } = await supabase.auth.signUp({
@@ -148,6 +176,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    if (!isSupabaseConfigured) return;
+    
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
