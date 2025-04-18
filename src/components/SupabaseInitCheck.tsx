@@ -2,22 +2,18 @@
 import React from 'react';
 import { 
   Box, 
-  Alert, 
+  Alert as ChakraAlert, 
   AlertIcon, 
   AlertTitle, 
   AlertDescription, 
-  Button, 
   Center,
   VStack,
   Heading,
   Text,
-  Link,
-  useColorModeValue
 } from '@chakra-ui/react';
 
 const SupabaseInitCheck: React.FC = () => {
   const isMissingEnvVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
-  const bgColor = useColorModeValue('white', 'gray.800');
   
   if (!isMissingEnvVars) return null;
   
@@ -26,14 +22,16 @@ const SupabaseInitCheck: React.FC = () => {
       <VStack 
         spacing={6} 
         p={8} 
-        bg={bgColor} 
+        bg="white" 
         boxShadow="xl" 
         borderRadius="md" 
         maxW="md" 
         w="full"
         align="center"
       >
-        <AlertIcon boxSize="50px" color="red.500" />
+        <Box color="red.500" fontSize="4xl">
+          ⚠️
+        </Box>
         <Heading size="lg" textAlign="center" color="red.500">
           Supabase Connection Required
         </Heading>
@@ -42,8 +40,8 @@ const SupabaseInitCheck: React.FC = () => {
           This app requires a connection to Supabase to function properly. Please connect to Supabase using the green button in the top right corner of the page.
         </Text>
         
-        <Box mt={4}>
-          <Alert 
+        <Box mt={4} width="100%">
+          <ChakraAlert 
             status="info" 
             variant="subtle"
             borderRadius="md"
@@ -57,7 +55,7 @@ const SupabaseInitCheck: React.FC = () => {
                 3. Refresh the page after connecting
               </AlertDescription>
             </Box>
-          </Alert>
+          </ChakraAlert>
         </Box>
       </VStack>
     </Center>
