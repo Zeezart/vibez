@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { theme } from './theme';
 import { AuthProvider } from './context/AuthContext';
+import SupabaseInitCheck from './components/SupabaseInitCheck';
 import LandingPage from './pages/LandingPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
@@ -23,6 +24,7 @@ const App = () => (
     <ChakraProvider theme={theme}>
       <AuthProvider>
         <BrowserRouter>
+          <SupabaseInitCheck />
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />

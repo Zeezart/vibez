@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
@@ -22,6 +23,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const toast = useToast();
 
   useEffect(() => {
+    // Check if Supabase is properly initialized
+    const isMissingEnvVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+    
+    if (isMissingEnvVars) {
+      console.error('Missing Supabase environment variables. Authentication will not work.');
+      setIsLoading(false);
+      toast({
+        title: 'Configuration Error',
+        description: 'Missing Supabase configuration. Please set up your environment variables.',
+        status: 'error',
+        duration: 9000,
+        isClosable: true,
+      });
+      return;
+    }
+
     // Check active sessions and subscribe to auth changes
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
