@@ -27,7 +27,7 @@ import Sidebar from './Sidebar';
 
 const Navbar: React.FC = () => {
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const { user, logout } = useAuth();
+  const { user, profile, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -51,7 +51,7 @@ const Navbar: React.FC = () => {
         </Link>
 
         <Flex alignItems="center">
-          {user ? (
+          {user && profile ? (
             <Menu>
               <MenuButton
                 as={Button}
@@ -60,7 +60,7 @@ const Navbar: React.FC = () => {
                 cursor="pointer"
                 minW={0}
               >
-                <Avatar size="sm" src={user.profileImage} name={user.name} />
+                <Avatar size="sm" src={profile.avatar_url} name={profile.full_name} />
               </MenuButton>
               <MenuList>
                 <MenuItem as={Link} to="/profile">Profile</MenuItem>

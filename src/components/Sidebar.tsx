@@ -15,7 +15,7 @@ import { AddIcon, CalendarIcon, SearchIcon, StarIcon, SettingsIcon } from '@chak
 
 const Sidebar: React.FC = () => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const NavItem = ({ path, label, icon }: { path: string; label: string; icon: React.ReactElement }) => (
     <Flex
@@ -50,15 +50,15 @@ const Sidebar: React.FC = () => {
       pos="fixed"
       pt="4"
     >
-      {user && (
+      {user && profile && (
         <Flex px="6" py="4" align="center">
-          <Avatar size="sm" src={user.profileImage} name={user.name} />
+          <Avatar size="sm" src={profile.avatar_url} name={profile.full_name} />
           <Box ml="3">
             <Text fontWeight="bold" isTruncated maxW="160px">
-              {user.name}
+              {profile.full_name}
             </Text>
             <Text fontSize="sm" color="gray.500" isTruncated maxW="160px">
-              @{user.username}
+              @{profile.username}
             </Text>
           </Box>
         </Flex>

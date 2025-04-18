@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   Box,
@@ -76,10 +75,10 @@ const PARTICIPATED_SPACES: SpaceProps[] = [
 ];
 
 const ProfilePage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const toast = useToast();
 
-  if (!user) {
+  if (!user || !profile) {
     return (
       <Layout>
         <Container maxW="4xl" py={10} textAlign="center">
@@ -108,17 +107,17 @@ const ProfilePage: React.FC = () => {
             >
               <Avatar
                 size="2xl"
-                name={user.name}
-                src={user.profileImage}
+                name={profile.full_name}
+                src={profile.avatar_url}
                 mb={{ base: 4, md: 0 }}
                 mr={{ md: 6 }}
               />
               <Box textAlign={{ base: 'center', md: 'left' }}>
                 <Heading size="xl" mb={1}>
-                  {user.name}
+                  {profile.full_name}
                 </Heading>
                 <Text color="gray.600" fontSize="lg" mb={3}>
-                  @{user.username}
+                  @{profile.username}
                 </Text>
                 <Text maxW="md" mb={4}>
                   Tech enthusiast, coffee lover, and audio space host. Join my weekly discussions about the latest in technology and innovation.

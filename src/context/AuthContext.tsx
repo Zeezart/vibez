@@ -1,8 +1,8 @@
-
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { useToast } from '@chakra-ui/react';
+import { Profile } from '../lib/supabase-types';
 
 interface AuthContextType {
   user: User | null;

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Box,
@@ -26,16 +25,14 @@ import Layout from '../components/Layout';
 import { useAuth } from '../context/AuthContext';
 
 const SettingsPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   
-  // Form state would typically be managed with a form library like react-hook-form
-  const [name, setName] = useState(user?.name || '');
+  const [name, setName] = useState(profile?.full_name || '');
   const [email, setEmail] = useState(user?.email || '');
   const [bio, setBio] = useState('Tech enthusiast, coffee lover, and audio space host.');
   
-  // Notification settings
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [spaceReminders, setSpaceReminders] = useState(true);
   const [mentionAlerts, setMentionAlerts] = useState(true);
@@ -98,8 +95,8 @@ const SettingsPage: React.FC = () => {
                     <VStack>
                       <Avatar 
                         size="2xl" 
-                        name={user?.name} 
-                        src={user?.profileImage} 
+                        name={profile?.full_name} 
+                        src={profile?.avatar_url} 
                       />
                       <Button size="sm" colorScheme="purple" variant="outline">
                         Change Photo
