@@ -6,7 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import Layout from '../components/Layout';
+import { 
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter
+} from "@/components/ui/card";
 
 const SignupPage = () => {
   const [email, setEmail] = useState('');
@@ -42,67 +49,72 @@ const SignupPage = () => {
     } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to create account",
         variant: "destructive",
       });
+      console.error("Signup error:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Layout showSidebar={false}>
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="mx-auto max-w-[350px] space-y-6 p-4">
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-bold">Create an account</h1>
-            <p className="text-gray-500">Enter your details to get started</p>
-          </div>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
-              <Input
-                id="fullName"
-                placeholder="John Doe"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-              />
+    <div className="flex min-h-screen bg-slate-50 items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <Card>
+          <CardHeader className="space-y-1 text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
+            <CardDescription>Enter your details to get started</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  placeholder="John Doe"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Creating account..." : "Create Account"}
+              </Button>
+            </form>
+          </CardContent>
+          <CardFooter className="text-center">
+            <div className="w-full text-sm">
+              Already have an account?{" "}
+              <Link to="/login" className="font-medium text-primary hover:underline">
+                Sign in
+              </Link>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="m@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
-            </Button>
-          </form>
-          <div className="text-center text-sm">
-            Already have an account?{" "}
-            <Link to="/login" className="text-blue-500 hover:text-blue-700">
-              Sign in
-            </Link>
-          </div>
-        </div>
+          </CardFooter>
+        </Card>
       </div>
-    </Layout>
+    </div>
   );
 };
 
