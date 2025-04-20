@@ -1,4 +1,3 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from './context/AuthContext';
@@ -30,10 +29,10 @@ const App = () => (
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/spaces" element={<SpacesPage />} />
             <Route path="/space/:id" element={<SpaceDetailPage />} />
             <Route path="/create-space" element={<CreateSpacePage />} />
-            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/scheduled" element={<ScheduledPage />} />
             <Route path="/favorites" element={<FavoritesPage />} />
             <Route path="/settings" element={<SettingsPage />} />

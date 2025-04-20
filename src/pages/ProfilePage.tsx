@@ -1,238 +1,181 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import {
   Box,
   Container,
   Heading,
   Text,
-  Flex,
+  FormControl,
+  FormLabel,
+  Input,
   Button,
-  Avatar,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanels,
-  TabPanel,
-  SimpleGrid,
-  Stat,
-  StatLabel,
-  StatNumber,
+  VStack,
   useToast,
+  Card,
+  CardBody,
+  Avatar,
+  Flex,
 } from '@chakra-ui/react';
-import { EditIcon } from '@chakra-ui/icons';
-import Layout from '../components/Layout';
-import SpaceCard, { SpaceProps } from '../components/SpaceCard';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../integrations/supabase/client';
 import { useAuth } from '../context/AuthContext';
+import Layout from '../components/Layout';
 
-// Mock data for hosted spaces
-const HOSTED_SPACES: SpaceProps[] = [
-  {
-    id: '1',
-    title: 'Tech Talk: AI and the Future of Work',
-    description: 'Join us for a discussion on how AI is transforming the workplace and what skills will be valuable in the future.',
-    status: 'live',
-    participantsCount: 120,
-    participants: [
-      { id: '1', name: 'John Doe', image: 'https://bit.ly/dan-abramov' },
-      { id: '2', name: 'Sarah Miller', image: 'https://bit.ly/ryan-florence' },
-    ],
-    host: { id: '1', name: 'John Doe', image: 'https://bit.ly/dan-abramov' },
-    tags: ['Tech', 'AI', 'Future'],
-    isFavorite: true,
-  },
-  {
-    id: '2',
-    title: 'Marketing in 2023: Trends and Predictions',
-    description: 'Explore the latest marketing trends and what to expect in the coming year.',
-    status: 'scheduled',
-    scheduledFor: '2023-05-15T15:00:00Z',
-    participantsCount: 45,
-    participants: [
-      { id: '1', name: 'John Doe', image: 'https://bit.ly/dan-abramov' },
-      { id: '4', name: 'Emma Wilson', image: 'https://bit.ly/kent-c-dodds' },
-    ],
-    host: { id: '1', name: 'John Doe', image: 'https://bit.ly/dan-abramov' },
-    tags: ['Marketing', 'Trends'],
-    isFavorite: false,
-  },
-];
-
-// Mock data for participated spaces
-const PARTICIPATED_SPACES: SpaceProps[] = [
-  {
-    id: '3',
-    title: 'Mental Health and Remote Work',
-    description: 'Discussing strategies for maintaining good mental health while working remotely.',
-    status: 'ended',
-    participantsCount: 75,
-    participants: [
-      { id: '3', name: 'Michael Brown', image: 'https://bit.ly/prosper-baba' },
-      { id: '1', name: 'John Doe', image: 'https://bit.ly/dan-abramov' },
-    ],
-    host: { id: '3', name: 'Michael Brown', image: 'https://bit.ly/prosper-baba' },
-    tags: ['Mental Health', 'Remote Work'],
-    isFavorite: true,
-  },
-];
-
-const ProfilePage: React.FC = () => {
+const ProfilePage = () => {
   const { user, profile } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    fullName: profile?.full_name || '',
+    username: profile?.username || '',
+    avatarUrl: profile?.avatar_url || '',
+  });
+  const navigate = useNavigate();
   const toast = useToast();
 
-  if (!user || !profile) {
-    return (
-      <Layout>
-        <Container maxW="4xl" py={10} textAlign="center">
-          <Heading mb={4}>Please log in to view your profile</Heading>
-          <Button colorScheme="purple" as="a" href="/login">
-            Log In
-          </Button>
-        </Container>
-      </Layout>
-    );
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: formData.fullName,
+          username: formData.username,
+          avatar_url: formData.avatarUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been successfully updated",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (!user) {
+    navigate('/login');
+    return null;
   }
 
   return (
     <Layout>
-      <Container maxW="4xl" py={8}>
-        <Box mb={10}>
-          <Flex
-            direction={{ base: 'column', md: 'row' }}
-            align={{ base: 'center', md: 'start' }}
-            justify="space-between"
-          >
-            <Flex
-              direction={{ base: 'column', md: 'row' }}
-              align="center"
-              mb={{ base: 6, md: 0 }}
-            >
-              <Avatar
-                size="2xl"
-                name={profile.full_name}
-                src={profile.avatar_url}
-                mb={{ base: 4, md: 0 }}
-                mr={{ md: 6 }}
-              />
-              <Box textAlign={{ base: 'center', md: 'left' }}>
-                <Heading size="xl" mb={1}>
-                  {profile.full_name}
-                </Heading>
-                <Text color="gray.600" fontSize="lg" mb={3}>
-                  @{profile.username}
-                </Text>
-                <Text maxW="md" mb={4}>
-                  Tech enthusiast, coffee lover, and audio space host. Join my weekly discussions about the latest in technology and innovation.
-                </Text>
-              </Box>
-            </Flex>
-            
-            <Button
-              leftIcon={<EditIcon />}
-              colorScheme="purple"
-              variant="outline"
-              alignSelf={{ base: 'center', md: 'start' }}
-            >
-              Edit Profile
-            </Button>
-          </Flex>
-        </Box>
-        
-        <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={10}>
-          <Stat
-            px={4}
-            py={3}
+      <Box 
+        minH="calc(100vh - 64px)"
+        bg="gray.50"
+        py={8}
+      >
+        <Container maxW="xl">
+          <Card
             bg="white"
-            borderRadius="lg"
-            boxShadow="sm"
-            textAlign="center"
+            shadow="xl"
+            borderRadius="xl"
+            overflow="hidden"
           >
-            <StatLabel color="gray.500" fontSize="sm">Spaces Hosted</StatLabel>
-            <StatNumber fontSize="3xl" fontWeight="bold" color="purple.600">
-              {HOSTED_SPACES.length}
-            </StatNumber>
-          </Stat>
-          
-          <Stat
-            px={4}
-            py={3}
-            bg="white"
-            borderRadius="lg"
-            boxShadow="sm"
-            textAlign="center"
-          >
-            <StatLabel color="gray.500" fontSize="sm">Spaces Participated</StatLabel>
-            <StatNumber fontSize="3xl" fontWeight="bold" color="purple.600">
-              {PARTICIPATED_SPACES.length}
-            </StatNumber>
-          </Stat>
-          
-          <Stat
-            px={4}
-            py={3}
-            bg="white"
-            borderRadius="lg"
-            boxShadow="sm"
-            textAlign="center"
-          >
-            <StatLabel color="gray.500" fontSize="sm">Followers</StatLabel>
-            <StatNumber fontSize="3xl" fontWeight="bold" color="purple.600">
-              25
-            </StatNumber>
-          </Stat>
-        </SimpleGrid>
-        
-        <Tabs colorScheme="purple" mb={8}>
-          <TabList>
-            <Tab>Hosted Spaces</Tab>
-            <Tab>Participated Spaces</Tab>
-          </TabList>
-          
-          <TabPanels>
-            <TabPanel p={0} pt={4}>
-              {HOSTED_SPACES.length === 0 ? (
-                <Box textAlign="center" py={10}>
-                  <Text fontSize="lg" color="gray.500">You haven't hosted any spaces yet</Text>
-                  <Button
-                    colorScheme="purple"
-                    mt={4}
-                    as="a"
-                    href="/create-space"
+            <CardBody p={8}>
+              <VStack spacing={6} align="stretch">
+                <Flex direction="column" align="center" mb={6}>
+                  <Avatar
+                    size="2xl"
+                    name={formData.fullName || user.email}
+                    src={formData.avatarUrl}
+                    mb={4}
+                  />
+                  <Heading
+                    size="lg"
+                    bgGradient="linear(to-r, purple.600, indigo.600)"
+                    backgroundClip="text"
                   >
-                    Create Your First Space
-                  </Button>
-                </Box>
-              ) : (
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                  {HOSTED_SPACES.map(space => (
-                    <SpaceCard key={space.id} space={space} />
-                  ))}
-                </SimpleGrid>
-              )}
-            </TabPanel>
-            
-            <TabPanel p={0} pt={4}>
-              {PARTICIPATED_SPACES.length === 0 ? (
-                <Box textAlign="center" py={10}>
-                  <Text fontSize="lg" color="gray.500">You haven't participated in any spaces yet</Text>
-                  <Button
-                    colorScheme="purple"
-                    mt={4}
-                    as="a"
-                    href="/spaces"
-                  >
-                    Discover Spaces
-                  </Button>
-                </Box>
-              ) : (
-                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={6}>
-                  {PARTICIPATED_SPACES.map(space => (
-                    <SpaceCard key={space.id} space={space} />
-                  ))}
-                </SimpleGrid>
-              )}
-            </TabPanel>
-          </TabPanels>
-        </Tabs>
-      </Container>
+                    Edit Profile
+                  </Heading>
+                  <Text color="gray.600" mt={2}>
+                    Update your personal information
+                  </Text>
+                </Flex>
+
+                <form onSubmit={handleSubmit}>
+                  <VStack spacing={6}>
+                    <FormControl>
+                      <FormLabel>Full Name</FormLabel>
+                      <Input
+                        value={formData.fullName}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          fullName: e.target.value
+                        }))}
+                        placeholder="Enter your full name"
+                        size="lg"
+                        focusBorderColor="purple.400"
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Username</FormLabel>
+                      <Input
+                        value={formData.username}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          username: e.target.value
+                        }))}
+                        placeholder="Choose a username"
+                        size="lg"
+                        focusBorderColor="purple.400"
+                      />
+                    </FormControl>
+
+                    <FormControl>
+                      <FormLabel>Avatar URL</FormLabel>
+                      <Input
+                        value={formData.avatarUrl}
+                        onChange={(e) => setFormData(prev => ({
+                          ...prev,
+                          avatarUrl: e.target.value
+                        }))}
+                        placeholder="Enter avatar URL"
+                        size="lg"
+                        focusBorderColor="purple.400"
+                      />
+                    </FormControl>
+
+                    <Button
+                      type="submit"
+                      isLoading={isLoading}
+                      loadingText="Updating..."
+                      bgGradient="linear(to-r, purple.600, indigo.600)"
+                      color="white"
+                      _hover={{
+                        bgGradient: "linear(to-r, purple.700, indigo.700)"
+                      }}
+                      size="lg"
+                      width="full"
+                      fontSize="md"
+                      height="50px"
+                    >
+                      Save Changes
+                    </Button>
+                  </VStack>
+                </form>
+              </VStack>
+            </CardBody>
+          </Card>
+        </Container>
+      </Box>
     </Layout>
   );
 };
