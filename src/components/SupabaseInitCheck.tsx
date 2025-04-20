@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Box, 
-  Alert as ChakraAlert, 
+  ChakraAlert, 
   AlertIcon, 
   AlertTitle, 
   AlertDescription, 
@@ -11,11 +11,13 @@ import {
   Heading,
   Text,
 } from '@chakra-ui/react';
+import { supabase } from '../integrations/supabase/client';
 
 const SupabaseInitCheck: React.FC = () => {
-  const isMissingEnvVars = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+  // Instead of checking env vars, check if we can access the Supabase client
+  const isSupabaseConnected = Boolean(supabase && supabase.auth);
   
-  if (!isMissingEnvVars) return null;
+  if (isSupabaseConnected) return null;
   
   return (
     <Center minH="100vh" p={4} position="fixed" top="0" left="0" right="0" bottom="0" zIndex="9999" bg="rgba(0, 0, 0, 0.5)">
