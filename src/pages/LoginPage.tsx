@@ -1,26 +1,35 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { 
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-  CardFooter
-} from "@/components/ui/card";
+  Box, 
+  Button, 
+  FormControl, 
+  FormLabel, 
+  Input, 
+  Heading, 
+  Text, 
+  Container, 
+  Stack, 
+  Card, 
+  CardBody, 
+  CardHeader, 
+  CardFooter,
+  useToast,
+  InputGroup,
+  InputRightElement,
+  IconButton
+} from '@chakra-ui/react';
+import { ViewIcon, ViewOffIcon } from '@chakra-ui/icons';
+import { supabase } from "@/integrations/supabase/client";
 
 const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const toast = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,6 +46,9 @@ const LoginPage = () => {
       toast({
         title: "Success",
         description: "You've been logged in successfully",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
       });
       
       navigate('/');
@@ -44,7 +56,9 @@ const LoginPage = () => {
       toast({
         title: "Error",
         description: error.message || "Failed to login",
-        variant: "destructive",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
       });
       console.error("Login error:", error);
     } finally {
@@ -53,69 +67,109 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="backdrop-blur-sm bg-white/90 shadow-xl border-0">
-          <CardHeader className="space-y-3 text-center pb-8">
-            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+    <Box 
+      minH="100vh" 
+      bgGradient="linear(to-br, purple.50, blue.50)" 
+      display="flex" 
+      alignItems="center" 
+      justifyContent="center"
+      p={4}
+    >
+      <Container maxW="md">
+        <Card
+          bg="white"
+          borderRadius="xl"
+          boxShadow="xl"
+          overflow="hidden"
+          border="none"
+          p={2}
+        >
+          <CardHeader textAlign="center" pb={6} pt={8}>
+            <Heading
+              as="h1"
+              size="xl"
+              bgGradient="linear(to-r, purple.600, indigo.600)"
+              backgroundClip="text"
+              mb={2}
+            >
               Welcome Back
-            </CardTitle>
-            <CardDescription className="text-gray-500 text-lg">
+            </Heading>
+            <Text color="gray.500" fontSize="lg">
               Sign in to your account
-            </CardDescription>
+            </Text>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="hello@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  className="h-11 text-lg"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
-                </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="h-11 text-lg"
-                />
-              </div>
-              <Button 
-                type="submit" 
-                className="w-full h-11 text-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing in..." : "Sign In"}
-              </Button>
+          <CardBody pt={0} pb={6} px={8}>
+            <form onSubmit={handleSubmit}>
+              <Stack spacing={6}>
+                <FormControl isRequired>
+                  <FormLabel fontWeight="medium" fontSize="sm" color="gray.700">Email</FormLabel>
+                  <Input
+                    type="email"
+                    placeholder="hello@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    size="lg"
+                    focusBorderColor="purple.400"
+                  />
+                </FormControl>
+                <FormControl isRequired>
+                  <FormLabel fontWeight="medium" fontSize="sm" color="gray.700">Password</FormLabel>
+                  <InputGroup size="lg">
+                    <Input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      focusBorderColor="purple.400"
+                    />
+                    <InputRightElement>
+                      <IconButton
+                        size="sm"
+                        variant="ghost"
+                        aria-label={showPassword ? 'Hide password' : 'Show password'}
+                        icon={showPassword ? <ViewOffIcon /> : <ViewIcon />}
+                        onClick={() => setShowPassword(!showPassword)}
+                      />
+                    </InputRightElement>
+                  </InputGroup>
+                </FormControl>
+                <Button
+                  type="submit"
+                  isLoading={isLoading}
+                  loadingText="Signing in..."
+                  bgGradient="linear(to-r, purple.600, indigo.600)"
+                  color="white"
+                  _hover={{ bgGradient: "linear(to-r, purple.700, indigo.700)" }}
+                  _active={{ bgGradient: "linear(to-r, purple.800, indigo.800)" }}
+                  size="lg"
+                  fontSize="md"
+                  height="50px"
+                  shadow="md"
+                  transition="all 0.2s"
+                >
+                  Sign In
+                </Button>
+              </Stack>
             </form>
-          </CardContent>
-          <CardFooter className="text-center border-t pt-6">
-            <div className="w-full text-sm text-gray-600">
+          </CardBody>
+          <CardFooter 
+            borderTop="1px" 
+            borderColor="gray.100" 
+            textAlign="center" 
+            pt={6} 
+            pb={6}
+          >
+            <Text w="full" fontSize="sm" color="gray.600">
               Don't have an account?{" "}
-              <Link 
-                to="/signup" 
-                className="font-semibold text-purple-600 hover:text-purple-700 transition-colors"
-              >
-                Create one now
+              <Link to="/signup">
+                <Text as="span" color="purple.600" fontWeight="semibold" _hover={{ color: "purple.700" }}>
+                  Create one now
+                </Text>
               </Link>
-            </div>
+            </Text>
           </CardFooter>
         </Card>
-      </div>
-    </div>
+      </Container>
+    </Box>
   );
 };
 
