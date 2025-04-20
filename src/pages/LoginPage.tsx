@@ -53,46 +53,63 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <Card>
-          <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold tracking-tight">Welcome back</CardTitle>
-            <CardDescription>Enter your credentials to sign in</CardDescription>
+        <Card className="backdrop-blur-sm bg-white/90 shadow-xl border-0">
+          <CardHeader className="space-y-3 text-center pb-8">
+            <CardTitle className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+              Welcome Back
+            </CardTitle>
+            <CardDescription className="text-gray-500 text-lg">
+              Sign in to your account
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="m@example.com"
+                  placeholder="hello@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="h-11 text-lg"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  Password
+                </Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="h-11 text-lg"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                disabled={isLoading}
+              >
                 {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="text-center">
-            <div className="w-full text-sm">
+          <CardFooter className="text-center border-t pt-6">
+            <div className="w-full text-sm text-gray-600">
               Don't have an account?{" "}
-              <Link to="/signup" className="font-medium text-primary hover:underline">
-                Sign up
+              <Link 
+                to="/signup" 
+                className="font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+              >
+                Create one now
               </Link>
             </div>
           </CardFooter>
