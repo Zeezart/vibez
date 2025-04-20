@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
   Box, 
-  ChakraAlert, 
+  Alert, 
   AlertIcon, 
   AlertTitle, 
   AlertDescription, 
@@ -43,7 +43,7 @@ const SupabaseInitCheck: React.FC = () => {
         </Text>
         
         <Box mt={4} width="100%">
-          <ChakraAlert 
+          <Alert 
             status="info" 
             variant="subtle"
             borderRadius="md"
@@ -57,7 +57,7 @@ const SupabaseInitCheck: React.FC = () => {
                 3. Refresh the page after connecting
               </AlertDescription>
             </Box>
-          </ChakraAlert>
+          </Alert>
         </Box>
       </VStack>
     </Center>
