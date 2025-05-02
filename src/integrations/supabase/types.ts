@@ -74,6 +74,7 @@ export type Database = {
           scheduled_for: string | null
           share_link: string
           status: string
+          tags: string[] | null
           title: string
           updated_at: string
         }
@@ -85,6 +86,7 @@ export type Database = {
           scheduled_for?: string | null
           share_link?: string
           status: string
+          tags?: string[] | null
           title: string
           updated_at?: string
         }
@@ -96,6 +98,7 @@ export type Database = {
           scheduled_for?: string | null
           share_link?: string
           status?: string
+          tags?: string[] | null
           title?: string
           updated_at?: string
         }
@@ -129,6 +132,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_followers: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
       }
     }
     Views: {

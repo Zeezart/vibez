@@ -33,6 +33,7 @@ const SpacesPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('all');
   const [spaces, setSpaces] = useState<SpaceProps[]>([]);
+  const [followedSpaces, setFollowedSpaces] = useState<SpaceProps[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -144,6 +145,99 @@ const SpacesPage: React.FC = () => {
         }));
         
         setSpaces(spacesWithParticipants);
+        
+        // After fetching all spaces, if user is logged in, fetch spaces from users they follow
+        if (user) {
+          // Get IDs of users the current user follows
+          const { data: followingData, error: followingError } = await supabase
+            .from('user_followers')
+            .select('following_id')
+            .eq('follower_id', user.id);
+            
+          if (followingError) throw followingError;
+          
+          if (followingData && followingData.length > 0) {
+            const followingIds = followingData.map(f => f.following_id);
+            
+            // Fetch spaces hosted by followed users
+            const { data: followedSpacesData, error: followedSpacesError } = await supabase
+              .from('spaces')
+              .select(`
+                id,
+                title,
+                description,
+                status,
+                scheduled_for,
+                share_link,
+                host_id,
+                created_at
+              `)
+              .in('host_id', followingIds)
+              .order('created_at', { ascending: false });
+              
+            if (followedSpacesError) throw followedSpacesError;
+            
+            if (followedSpacesData && followedSpacesData.length > 0) {
+              // Process followed spaces (similar to all spaces)
+              const processedFollowedSpaces = await Promise.all(followedSpacesData.map(async (space) => {
+                // Get participants count
+                const { count: participantCount } = await supabase
+                  .from('space_participants')
+                  .select('user_id', { count: 'exact', head: true })
+                  .eq('space_id', space.id);
+                  
+                // Get up to 5 participants
+                const { data: participants } = await supabase
+                  .from('space_participants')
+                  .select('user_id')
+                  .eq('space_id', space.id)
+                  .limit(5);
+                  
+                // Get participant profiles
+                let participantProfiles = [];
+                if (participants && participants.length > 0) {
+                  const { data: profiles } = await supabase
+                    .from('profiles')
+                    .select('id, full_name, avatar_url')
+                    .in('id', participants.map(p => p.user_id));
+                    
+                  participantProfiles = profiles || [];
+                }
+                
+                // Get host profile
+                const { data: host } = await supabase
+                  .from('profiles')
+                  .select('id, full_name, avatar_url')
+                  .eq('id', space.host_id)
+                  .single();
+                
+                return {
+                  id: space.id,
+                  title: space.title,
+                  description: space.description || '',
+                  status: space.status as 'live' | 'scheduled' | 'ended',
+                  scheduledFor: space.scheduled_for,
+                  participantsCount: participantCount || 0,
+                  participants: participantProfiles.map(p => ({
+                    id: p.id,
+                    name: p.full_name || 'Anonymous',
+                    image: p.avatar_url,
+                  })) || [],
+                  host: {
+                    id: host?.id || '',
+                    name: host?.full_name || 'Anonymous',
+                    image: host?.avatar_url,
+                  },
+                  tags: [], // We'll add tags support later
+                  isFavorite: userFavorites.has(space.id),
+                  shareLink: space.share_link,
+                };
+              }));
+              
+              setFollowedSpaces(processedFollowedSpaces);
+            }
+          }
+        }
       } catch (err: any) {
         console.error('Error fetching spaces:', err);
         setError(err.message || 'Failed to load spaces');
@@ -314,6 +408,9 @@ const SpacesPage: React.FC = () => {
         <Tabs colorScheme="purple" mb={8}>
           <TabList>
             <Tab>All ({filteredSpaces.length})</Tab>
+            {user && followedSpaces.length > 0 && (
+              <Tab>From Users You Follow ({filteredFollowedSpaces.length})</Tab>
+            )}
             <Tab>Live Now ({liveSpaces.length})</Tab>
             <Tab>Scheduled ({scheduledSpaces.length})</Tab>
             <Tab>Ended ({endedSpaces.length})</Tab>
@@ -337,6 +434,26 @@ const SpacesPage: React.FC = () => {
                 </SimpleGrid>
               )}
             </TabPanel>
+            
+            {user && followedSpaces.length > 0 && (
+              <TabPanel p={0} pt={4}>
+                {filteredFollowedSpaces.length === 0 ? (
+                  <Box textAlign="center" py={10}>
+                    <Text fontSize="lg" color="gray.500">No spaces from users you follow matching your criteria</Text>
+                  </Box>
+                ) : (
+                  <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+                    {filteredFollowedSpaces.map(space => (
+                      <SpaceCard 
+                        key={space.id} 
+                        space={space} 
+                        onToggleFavorite={() => toggleFavorite(space.id)}
+                      />
+                    ))}
+                  </SimpleGrid>
+                )}
+              </TabPanel>
+            )}
             
             <TabPanel p={0} pt={4}>
               {liveSpaces.length === 0 ? (

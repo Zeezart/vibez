@@ -55,6 +55,9 @@ const SpaceDetailPage: React.FC = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'host' | 'speaker' | 'listener' | null>(null);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [joinLink, setJoinLink] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
   
   const toast = useToast();
@@ -152,6 +155,34 @@ const SpaceDetailPage: React.FC = () => {
           if (userParticipant) {
             setUserRole(userParticipant.role as 'host' | 'speaker' | 'listener');
           }
+        }
+        
+        // After fetching the host profile, check if the current user follows the host
+        if (user && hostProfile && user.id !== hostProfile.id) {
+          const { data: followData } = await supabase
+            .from('user_followers')
+            .select('id')
+            .eq('follower_id', user.id)
+            .eq('following_id', hostProfile.id)
+            .single();
+            
+          setIsFollowing(!!followData);
+        }
+        
+        // Get followers count for the host
+        if (hostProfile) {
+          const { count: followersCountData } = await supabase
+            .from('user_followers')
+            .select('id', { count: 'exact', head: true })
+            .eq('following_id', hostProfile.id);
+            
+          setFollowersCount(followersCountData || 0);
+        }
+        
+        // Generate join link
+        if (spaceData?.share_link) {
+          const joinUrl = `${window.location.origin}/join/${spaceData.share_link}`;
+          setJoinLink(joinUrl);
         }
         
         // Format the space object
@@ -384,6 +415,64 @@ const SpaceDetailPage: React.FC = () => {
     }
   };
 
+  const toggleFollow = async () => {
+    if (!user || !space) return;
+    
+    try {
+      if (isFollowing) {
+        // Unfollow user
+        const { error } = await supabase
+          .from('user_followers')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('following_id', space.host.id);
+          
+        if (error) throw error;
+        
+        setIsFollowing(false);
+        setFollowersCount(prev => prev - 1);
+        
+        toast({
+          title: 'Unfollowed',
+          description: `You are no longer following ${space.host.name}`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } else {
+        // Follow user
+        const { error } = await supabase
+          .from('user_followers')
+          .insert({
+            follower_id: user.id,
+            following_id: space.host.id
+          });
+          
+        if (error) throw error;
+        
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+        
+        toast({
+          title: 'Following',
+          description: `You are now following ${space.host.name}`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error toggling follow status:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update follow status',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
   const shareSpace = () => {
     onCopy();
     toast({
@@ -396,9 +485,8 @@ const SpaceDetailPage: React.FC = () => {
   };
 
   const copyShareLink = () => {
-    if (space?.shareLink) {
-      const shareUrl = `${window.location.origin}/join/${space.shareLink}`;
-      navigator.clipboard.writeText(shareUrl);
+    if (joinLink) {
+      navigator.clipboard.writeText(joinLink);
       
       toast({
         title: "Link copied",
@@ -550,7 +638,20 @@ const SpaceDetailPage: React.FC = () => {
               
               <Flex align="center" mb={4}>
                 <Avatar size="sm" src={space.host.image} name={space.host.name} mr={2} />
-                <Text>Hosted by <Text as="span" fontWeight="bold">{space.host.name}</Text></Text>
+                <Box flex="1">
+                  <Text>Hosted by <Text as="span" fontWeight="bold">{space.host.name}</Text></Text>
+                  <Text fontSize="xs" color="gray.500">{followersCount} followers</Text>
+                </Box>
+                {user && user.id !== space.host.id && (
+                  <Button
+                    size="sm"
+                    colorScheme={isFollowing ? "gray" : "purple"}
+                    variant={isFollowing ? "outline" : "solid"}
+                    onClick={toggleFollow}
+                  >
+                    {isFollowing ? 'Following' : 'Follow'}
+                  </Button>
+                )}
               </Flex>
               
               {space.tags && space.tags.length > 0 && (
@@ -573,6 +674,18 @@ const SpaceDetailPage: React.FC = () => {
               <Box bg="gray.50" p={5} borderRadius="md" mb={6}>
                 <Text>{space.description}</Text>
               </Box>
+              
+              {joinLink && (
+                <Box bg="blue.50" p={5} borderRadius="md" mb={6}>
+                  <Heading size="sm" mb={2}>Share this space</Heading>
+                  <Flex align="center">
+                    <Input value={joinLink} isReadOnly bg="white" />
+                    <Button ml={2} colorScheme="blue" onClick={copyShareLink}>
+                      Copy
+                    </Button>
+                  </Flex>
+                </Box>
+              )}
             </Box>
             
             <Box>

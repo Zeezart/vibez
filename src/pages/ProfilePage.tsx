@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -10,7 +9,6 @@ import {
   Input,
   Button,
   VStack,
-  useToast,
   Card,
   CardBody,
   Avatar,
@@ -25,6 +23,7 @@ import {
   ModalCloseButton,
   ModalFooter,
   Spinner,
+  useToast,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
@@ -33,7 +32,7 @@ import Layout from '../components/Layout';
 import { EditIcon } from '@chakra-ui/icons';
 
 const ProfilePage = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -74,6 +73,11 @@ const ProfilePage = () => {
 
       if (error) throw error;
 
+      // Refresh the profile data
+      if (refreshProfile) {
+        await refreshProfile();
+      }
+
       toast({
         title: "Profile updated",
         description: "Your profile has been successfully updated",
@@ -107,6 +111,18 @@ const ProfilePage = () => {
       const fileName = `${user?.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${fileName}`;
 
+      // Create avatars bucket if it doesn't exist
+      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('avatars');
+      
+      if (bucketError && bucketError.message.includes('The resource was not found')) {
+        const { error: createError } = await supabase.storage.createBucket('avatars', {
+          public: true,
+          fileSizeLimit: 2097152, // 2MB
+        });
+        
+        if (createError) throw createError;
+      }
+
       const { error: uploadError, data } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true });
@@ -133,6 +149,11 @@ const ProfilePage = () => {
 
       // Update state
       setAvatarUrl(publicURL.publicUrl);
+      
+      // Refresh the profile data
+      if (refreshProfile) {
+        await refreshProfile();
+      }
 
       toast({
         title: "Avatar updated",
@@ -144,6 +165,7 @@ const ProfilePage = () => {
 
       onClose();
     } catch (error: any) {
+      console.error('Error uploading avatar:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to update avatar",

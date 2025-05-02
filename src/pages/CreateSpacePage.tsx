@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Box,
@@ -123,16 +122,21 @@ const CreateSpacePage: React.FC = () => {
     
     try {
       // Build space data object
-      const spaceData = {
+      const spaceData: any = {
         title,
         description,
         status: isScheduled ? 'scheduled' : 'live',
         host_id: user.id,
-        tags: tags.length > 0 ? tags : null,
-        ...(isScheduled && {
-          scheduled_for: `${scheduledDate}T${scheduledTime}:00`,
-        }),
+        // Only add tags if there are any
+        ...(tags.length > 0 && { tags: tags }),
       };
+      
+      // Add scheduled_for only if it's a scheduled space
+      if (isScheduled) {
+        spaceData.scheduled_for = `${scheduledDate}T${scheduledTime}:00`;
+      }
+      
+      console.log('Creating space with data:', spaceData);
       
       // Insert the space into the database
       const { data: space, error } = await supabase
@@ -141,7 +145,10 @@ const CreateSpacePage: React.FC = () => {
         .select('id, share_link')
         .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating space:', error);
+        throw error;
+      }
       
       if (!space) throw new Error('Failed to create space');
       
