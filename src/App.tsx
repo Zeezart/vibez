@@ -24,8 +24,8 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ChakraProvider theme={theme}>
-      <AuthProvider>
-        <BrowserRouter>
+      <BrowserRouter>
+        <AuthProvider>
           <SupabaseInitCheck />
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -42,8 +42,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />
-        </BrowserRouter>
-      </AuthProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </ChakraProvider>
   </QueryClientProvider>
 );
