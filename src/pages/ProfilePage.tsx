@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -15,22 +15,48 @@ import {
   CardBody,
   Avatar,
   Flex,
+  IconButton,
+  useDisclosure,
+  Modal,
+  ModalOverlay,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalCloseButton,
+  ModalFooter,
+  Spinner,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
+import { EditIcon } from '@chakra-ui/icons';
 
 const ProfilePage = () => {
   const { user, profile } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [uploadLoading, setUploadLoading] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
-    fullName: profile?.full_name || '',
-    username: profile?.username || '',
-    avatarUrl: profile?.avatar_url || '',
+    fullName: '',
+    username: '',
   });
   const navigate = useNavigate();
   const toast = useToast();
+  const { isOpen, onOpen, onClose } = useDisclosure();
+
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        fullName: profile.full_name || '',
+        username: profile.username || '',
+      });
+      
+      if (profile.avatar_url) {
+        setAvatarUrl(profile.avatar_url);
+      }
+    }
+  }, [profile]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +68,6 @@ const ProfilePage = () => {
         .update({
           full_name: formData.fullName,
           username: formData.username,
-          avatar_url: formData.avatarUrl,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user?.id);
@@ -69,6 +94,68 @@ const ProfilePage = () => {
     }
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    setUploadLoading(true);
+
+    try {
+      // Upload the file to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      // Get the public URL
+      const { data: publicURL } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      if (!publicURL.publicUrl) throw new Error('Failed to get public URL');
+
+      // Update the avatar URL in the profile
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          avatar_url: publicURL.publicUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user?.id);
+
+      if (updateError) throw updateError;
+
+      // Update state
+      setAvatarUrl(publicURL.publicUrl);
+
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been updated",
+        status: "success",
+        duration: 5000,
+        isClosable: true,
+      });
+
+      onClose();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update avatar",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setUploadLoading(false);
+    }
+  };
+
   if (!user) {
     navigate('/login');
     return null;
@@ -91,12 +178,25 @@ const ProfilePage = () => {
             <CardBody p={8}>
               <VStack spacing={6} align="stretch">
                 <Flex direction="column" align="center" mb={6}>
-                  <Avatar
-                    size="2xl"
-                    name={formData.fullName || user.email}
-                    src={formData.avatarUrl}
-                    mb={4}
-                  />
+                  <Box position="relative" mb={4}>
+                    <Avatar
+                      size="2xl"
+                      name={formData.fullName || user.email}
+                      src={avatarUrl || undefined}
+                      mb={2}
+                    />
+                    <IconButton
+                      aria-label="Change avatar"
+                      icon={<EditIcon />}
+                      size="sm"
+                      colorScheme="purple"
+                      rounded="full"
+                      position="absolute"
+                      bottom={0}
+                      right={0}
+                      onClick={onOpen}
+                    />
+                  </Box>
                   <Heading
                     size="lg"
                     bgGradient="linear(to-r, purple.600, indigo.600)"
@@ -139,20 +239,6 @@ const ProfilePage = () => {
                       />
                     </FormControl>
 
-                    <FormControl>
-                      <FormLabel>Avatar URL</FormLabel>
-                      <Input
-                        value={formData.avatarUrl}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          avatarUrl: e.target.value
-                        }))}
-                        placeholder="Enter avatar URL"
-                        size="lg"
-                        focusBorderColor="purple.400"
-                      />
-                    </FormControl>
-
                     <Button
                       type="submit"
                       isLoading={isLoading}
@@ -176,6 +262,39 @@ const ProfilePage = () => {
           </Card>
         </Container>
       </Box>
+
+      <Modal isOpen={isOpen} onClose={onClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Change Profile Picture</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            {uploadLoading ? (
+              <Flex justify="center" py={8}>
+                <Spinner size="xl" color="purple.500" />
+              </Flex>
+            ) : (
+              <FormControl>
+                <FormLabel>Select an image</FormLabel>
+                <Input 
+                  type="file" 
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  p={1}
+                />
+                <Text mt={2} fontSize="sm" color="gray.500">
+                  Maximum file size: 2 MB
+                </Text>
+              </FormControl>
+            )}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" onClick={onClose}>
+              Cancel
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </Layout>
   );
 };

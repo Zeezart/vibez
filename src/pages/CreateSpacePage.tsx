@@ -20,10 +20,14 @@ import {
   useToast,
   InputGroup,
   InputRightElement,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { AddIcon } from '@chakra-ui/icons';
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../context/AuthContext';
 
 const CreateSpacePage: React.FC = () => {
   const [title, setTitle] = useState('');
@@ -39,9 +43,11 @@ const CreateSpacePage: React.FC = () => {
     scheduledDate: '',
     scheduledTime: '',
   });
+  const [isLoading, setIsLoading] = useState(false);
   
   const toast = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const validateForm = () => {
     const newErrors = {
@@ -96,35 +102,82 @@ const CreateSpacePage: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please log in to create a space',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+      navigate('/login');
+      return;
+    }
     
     if (!validateForm()) return;
     
-    // Build space data object
-    const spaceData = {
-      title,
-      description,
-      tags,
-      status: isScheduled ? 'scheduled' : 'live',
-      ...(isScheduled && {
-        scheduledFor: `${scheduledDate}T${scheduledTime}:00`,
-      }),
-    };
+    setIsLoading(true);
     
-    // In a real app, this would be an API call
-    console.log('Creating space:', spaceData);
-    
-    toast({
-      title: isScheduled ? 'Space scheduled' : 'Space created',
-      description: isScheduled ? 'Your space has been scheduled successfully' : 'Your space is now live',
-      status: 'success',
-      duration: 5000,
-      isClosable: true,
-    });
-    
-    // Redirect to the spaces page
-    navigate('/spaces');
+    try {
+      // Build space data object
+      const spaceData = {
+        title,
+        description,
+        status: isScheduled ? 'scheduled' : 'live',
+        host_id: user.id,
+        tags: tags.length > 0 ? tags : null,
+        ...(isScheduled && {
+          scheduled_for: `${scheduledDate}T${scheduledTime}:00`,
+        }),
+      };
+      
+      // Insert the space into the database
+      const { data: space, error } = await supabase
+        .from('spaces')
+        .insert(spaceData)
+        .select('id, share_link')
+        .single();
+      
+      if (error) throw error;
+      
+      if (!space) throw new Error('Failed to create space');
+      
+      // Add the host as a participant with role 'host'
+      const { error: participantError } = await supabase
+        .from('space_participants')
+        .insert({
+          space_id: space.id,
+          user_id: user.id,
+          role: 'host',
+        });
+      
+      if (participantError) throw participantError;
+      
+      toast({
+        title: isScheduled ? 'Space scheduled' : 'Space created',
+        description: isScheduled ? 'Your space has been scheduled successfully' : 'Your space is now live',
+        status: 'success',
+        duration: 5000,
+        isClosable: true,
+      });
+      
+      // Redirect to the space detail page
+      navigate(`/space/${space.id}`);
+    } catch (error: any) {
+      console.error('Error creating space:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create space',
+        status: 'error',
+        duration: 5000,
+        isClosable: true,
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -136,6 +189,13 @@ const CreateSpacePage: React.FC = () => {
             Set up your audio conversation room
           </Text>
         </Box>
+        
+        {!user && (
+          <Alert status="warning" mb={6}>
+            <AlertIcon />
+            You must be logged in to create a space
+          </Alert>
+        )}
         
         <Box as="form" onSubmit={handleSubmit} bg="white" p={6} borderRadius="lg" boxShadow="md">
           <Stack spacing={6}>
@@ -235,6 +295,8 @@ const CreateSpacePage: React.FC = () => {
               colorScheme="purple"
               type="submit"
               size="lg"
+              isLoading={isLoading}
+              isDisabled={!user}
             >
               {isScheduled ? 'Schedule Space' : 'Create Space Now'}
             </Button>

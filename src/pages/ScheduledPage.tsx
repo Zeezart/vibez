@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Container,
@@ -9,48 +9,174 @@ import {
   VStack,
   Button,
   useToast,
+  Spinner,
+  Center,
+  Alert,
+  AlertIcon,
 } from '@chakra-ui/react';
 import { CalendarIcon } from '@chakra-ui/icons';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import SpaceCard, { SpaceProps } from '../components/SpaceCard';
-
-// Mock data for scheduled spaces
-const SCHEDULED_SPACES: SpaceProps[] = [
-  {
-    id: '2',
-    title: 'Marketing in 2023: Trends and Predictions',
-    description: 'Explore the latest marketing trends and what to expect in the coming year.',
-    status: 'scheduled',
-    scheduledFor: '2023-05-15T15:00:00Z',
-    participantsCount: 45,
-    participants: [
-      { id: '2', name: 'Sarah Miller', image: 'https://bit.ly/ryan-florence' },
-      { id: '4', name: 'Emma Wilson', image: 'https://bit.ly/kent-c-dodds' },
-    ],
-    host: { id: '2', name: 'Sarah Miller', image: 'https://bit.ly/ryan-florence' },
-    tags: ['Marketing', 'Trends'],
-    isFavorite: false,
-  },
-  {
-    id: '5',
-    title: 'Web3 and the Future of Finance',
-    description: 'Discussing cryptocurrencies, blockchain and decentralized finance.',
-    status: 'scheduled',
-    scheduledFor: '2023-05-20T18:00:00Z',
-    participantsCount: 32,
-    participants: [
-      { id: '1', name: 'Alex Johnson', image: 'https://bit.ly/dan-abramov' },
-      { id: '3', name: 'Michael Brown', image: 'https://bit.ly/prosper-baba' },
-    ],
-    host: { id: '1', name: 'Alex Johnson', image: 'https://bit.ly/dan-abramov' },
-    tags: ['Crypto', 'Web3', 'Finance'],
-    isFavorite: true,
-  },
-];
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../context/AuthContext';
 
 const ScheduledPage: React.FC = () => {
+  const [scheduledSpaces, setScheduledSpaces] = useState<SpaceProps[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const fetchScheduledSpaces = async () => {
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch spaces with status = scheduled
+        const { data: spacesData, error: spacesError } = await supabase
+          .from('spaces')
+          .select(`
+            id,
+            title,
+            description,
+            status,
+            scheduled_for,
+            host_id,
+            share_link,
+            profiles:host_id(full_name, avatar_url, id, username)
+          `)
+          .eq('status', 'scheduled')
+          .order('scheduled_for', { ascending: true });
+          
+        if (spacesError) throw spacesError;
+
+        // Determine which spaces are favorited by current user
+        let userFavorites = new Set<string>();
+        if (user) {
+          const { data: favData } = await supabase
+            .from('user_favorites')
+            .select('space_id')
+            .eq('user_id', user.id);
+            
+          if (favData) {
+            userFavorites = new Set(favData.map(fav => fav.space_id));
+          }
+        }
+        
+        // Get participants for each space
+        const spacesWithParticipants = await Promise.all((spacesData || []).map(async (space) => {
+          const { data: participants } = await supabase
+            .from('space_participants')
+            .select('user_id, profiles:user_id(full_name, avatar_url)')
+            .eq('space_id', space.id)
+            .limit(5);
+            
+          return {
+            id: space.id,
+            title: space.title,
+            description: space.description || '',
+            status: space.status as 'live' | 'scheduled' | 'ended',
+            scheduledFor: space.scheduled_for,
+            participantsCount: participants?.length || 0,
+            participants: participants?.map(p => ({
+              id: p.user_id,
+              name: p.profiles?.full_name || 'Anonymous',
+              image: p.profiles?.avatar_url,
+            })) || [],
+            host: {
+              id: space.host_id,
+              name: space.profiles?.full_name || 'Anonymous',
+              image: space.profiles?.avatar_url,
+            },
+            tags: [], // We'll add tags support later
+            isFavorite: userFavorites.has(space.id),
+            shareLink: space.share_link,
+          };
+        }));
+        
+        setScheduledSpaces(spacesWithParticipants);
+      } catch (err: any) {
+        console.error('Error fetching scheduled spaces:', err);
+        setError(err.message || 'Failed to load scheduled spaces');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchScheduledSpaces();
+  }, [user]);
+  
+  const toggleFavorite = async (spaceId: string) => {
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please log in to favorite spaces',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    const space = scheduledSpaces.find(s => s.id === spaceId);
+    if (!space) return;
+    
+    try {
+      if (space.isFavorite) {
+        // Remove from favorites
+        await supabase
+          .from('user_favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('space_id', spaceId);
+      } else {
+        // Add to favorites
+        await supabase
+          .from('user_favorites')
+          .insert({
+            user_id: user.id,
+            space_id: spaceId
+          });
+      }
+      
+      // Update the local state
+      setScheduledSpaces(scheduledSpaces.map(s => 
+        s.id === spaceId 
+          ? { ...s, isFavorite: !s.isFavorite }
+          : s
+      ));
+      
+      toast({
+        title: space.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      console.error('Error updating favorite:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to update favorite',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <Layout>
+        <Container maxW="7xl" py={10}>
+          <Center h="400px">
+            <Spinner size="xl" color="purple.500" />
+          </Center>
+        </Container>
+      </Layout>
+    );
+  }
   
   return (
     <Layout>
@@ -64,7 +190,14 @@ const ScheduledPage: React.FC = () => {
           </Text>
         </Box>
 
-        {SCHEDULED_SPACES.length === 0 ? (
+        {error && (
+          <Alert status="error" mb={6}>
+            <AlertIcon />
+            {error}
+          </Alert>
+        )}
+
+        {scheduledSpaces.length === 0 ? (
           <VStack spacing={6} py={10} textAlign="center">
             <Text fontSize="lg" color="gray.500">No scheduled spaces available</Text>
             <Button as={Link} to="/create-space" colorScheme="purple">
@@ -73,8 +206,12 @@ const ScheduledPage: React.FC = () => {
           </VStack>
         ) : (
           <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-            {SCHEDULED_SPACES.map((space) => (
-              <SpaceCard key={space.id} space={space} />
+            {scheduledSpaces.map((space) => (
+              <SpaceCard 
+                key={space.id} 
+                space={space} 
+                onToggleFavorite={() => toggleFavorite(space.id)}
+              />
             ))}
           </SimpleGrid>
         )}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -21,69 +22,293 @@ import {
   ModalFooter,
   ModalBody,
   ModalCloseButton,
+  Spinner,
+  Center,
+  Alert,
+  AlertIcon,
+  useClipboard,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
 } from '@chakra-ui/react';
 import { 
   CalendarIcon, 
   StarIcon, 
-  InfoIcon 
+  InfoIcon, 
+  CopyIcon,
 } from '@chakra-ui/icons';
-import { Mic, Share2 } from 'lucide-react';
+import { Mic, Share2, MoreVertical } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import UsersList from '../components/UsersList';
 import { SpaceProps } from '../components/SpaceCard';
-
-const MOCK_SPACE: SpaceProps = {
-  id: '1',
-  title: 'Tech Talk: AI and the Future of Work',
-  description: 'Join us for a discussion on how AI is transforming the workplace and what skills will be valuable in the future. We\'ll cover the latest developments in artificial intelligence, machine learning, and how these technologies are reshaping industries from healthcare to finance.',
-  status: 'live',
-  participantsCount: 120,
-  participants: [
-    { id: '1', name: 'Alex Johnson', image: 'https://bit.ly/dan-abramov' },
-    { id: '2', name: 'Sarah Miller', image: 'https://bit.ly/ryan-florence' },
-    { id: '3', name: 'Michael Brown', image: 'https://bit.ly/prosper-baba' },
-    { id: '4', name: 'Emma Wilson', image: 'https://bit.ly/kent-c-dodds' },
-    { id: '5', name: 'David Clark', image: 'https://bit.ly/code-beast' },
-    { id: '6', name: 'John Taylor', image: 'https://bit.ly/sage-adebayo' },
-  ],
-  host: { id: '1', name: 'Alex Johnson', image: 'https://bit.ly/dan-abramov' },
-  tags: ['Tech', 'AI', 'Future', 'Careers', 'Innovation'],
-  isFavorite: true,
-};
-
-const MOCK_USERS = [
-  { id: '1', name: 'Alex Johnson', username: 'alexj', image: 'https://bit.ly/dan-abramov', role: 'host' as const, isSpeaking: true, isMuted: false },
-  { id: '2', name: 'Sarah Miller', username: 'sarahm', image: 'https://bit.ly/ryan-florence', role: 'speaker' as const, isSpeaking: false, isMuted: false },
-  { id: '3', name: 'Michael Brown', username: 'mikeb', image: 'https://bit.ly/prosper-baba', role: 'speaker' as const, isSpeaking: false, isMuted: true },
-  { id: '4', name: 'Emma Wilson', username: 'emmaw', image: 'https://bit.ly/kent-c-dodds', role: 'listener' as const },
-  { id: '5', name: 'David Clark', username: 'davidc', image: 'https://bit.ly/code-beast', role: 'listener' as const },
-  { id: '6', name: 'John Taylor', username: 'johnt', image: 'https://bit.ly/sage-adebayo', role: 'listener' as const },
-  { id: '7', name: 'Lisa Wang', username: 'lisaw', role: 'listener' as const },
-  { id: '8', name: 'Robert Jones', username: 'robertj', role: 'listener' as const },
-  { id: '9', name: 'Amanda Lee', username: 'amandal', role: 'listener' as const },
-];
+import { supabase } from '../integrations/supabase/client';
+import { useAuth } from '../context/AuthContext';
 
 const SpaceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [space, setSpace] = useState<SpaceProps | null>(null);
-  const [users, setUsers] = useState<typeof MOCK_USERS>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [isMuted, setIsMuted] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+  const [isJoining, setIsJoining] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'host' | 'speaker' | 'listener' | null>(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   
   const toast = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { onCopy } = useClipboard(`${window.location.origin}/space/${id}`);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSpace(MOCK_SPACE);
-      setUsers(MOCK_USERS);
-      setIsLoading(false);
-    }, 1000);
+    const fetchSpaceDetails = async () => {
+      if (!id) return;
+      
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch space details
+        const { data: spaceData, error: spaceError } = await supabase
+          .from('spaces')
+          .select(`
+            id,
+            title,
+            description,
+            status,
+            scheduled_for,
+            host_id,
+            share_link,
+            created_at,
+            profiles:host_id(full_name, avatar_url, id, username)
+          `)
+          .eq('id', id)
+          .single();
+          
+        if (spaceError) throw spaceError;
+        if (!spaceData) throw new Error('Space not found');
+        
+        // Fetch participants
+        const { data: participants, error: participantsError } = await supabase
+          .from('space_participants')
+          .select(`
+            id,
+            role,
+            user_id,
+            profiles:user_id(full_name, avatar_url, id, username)
+          `)
+          .eq('space_id', id);
+          
+        if (participantsError) throw participantsError;
+        
+        // Check if current user is a participant and get their role
+        if (user) {
+          const userParticipant = participants?.find(p => p.user_id === user.id);
+          if (userParticipant) {
+            setUserRole(userParticipant.role as 'host' | 'speaker' | 'listener');
+          }
+        }
+        
+        // Format participants for the UsersList component
+        const usersFormatted = participants?.map(p => ({
+          id: p.user_id,
+          name: p.profiles?.full_name || 'Anonymous',
+          username: p.profiles?.username || 'user',
+          image: p.profiles?.avatar_url,
+          role: p.role,
+          isSpeaking: false,
+          isMuted: p.role !== 'host',
+        })) || [];
+        
+        // Check if user has favorited this space
+        let isFavorited = false;
+        if (user) {
+          const { data: favorite } = await supabase
+            .from('user_favorites')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('space_id', id)
+            .single();
+            
+          isFavorited = !!favorite;
+        }
+        
+        // Format the space object
+        const formattedSpace: SpaceProps = {
+          id: spaceData.id,
+          title: spaceData.title,
+          description: spaceData.description || '',
+          status: spaceData.status as 'live' | 'scheduled' | 'ended',
+          scheduledFor: spaceData.scheduled_for,
+          host: {
+            id: spaceData.host_id,
+            name: spaceData.profiles?.full_name || 'Anonymous',
+            image: spaceData.profiles?.avatar_url,
+          },
+          participants: usersFormatted.map(u => ({
+            id: u.id,
+            name: u.name,
+            image: u.image,
+          })),
+          participantsCount: participants?.length || 0,
+          tags: [], // We'll add tags support later
+          isFavorite: isFavorited,
+          shareLink: spaceData.share_link,
+        };
+        
+        setSpace(formattedSpace);
+        setUsers(usersFormatted);
+      } catch (err: any) {
+        console.error('Error fetching space details:', err);
+        setError(err.message || 'Failed to load space details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
-  }, [id]);
+    fetchSpaceDetails();
+  }, [id, user]);
+
+  const joinSpace = async (role: 'listener' | 'speaker' = 'listener') => {
+    if (!user) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please log in to join this space',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+      navigate('/login', { state: { from: `/space/${id}` } });
+      return;
+    }
+    
+    if (!id) return;
+    
+    setIsJoining(true);
+    
+    try {
+      // Check if user is already a participant
+      const { data: existingParticipant } = await supabase
+        .from('space_participants')
+        .select('id, role')
+        .eq('space_id', id)
+        .eq('user_id', user.id)
+        .single();
+      
+      if (existingParticipant) {
+        // User is already a participant, update their role if needed
+        if (existingParticipant.role !== role && role === 'speaker') {
+          await supabase
+            .from('space_participants')
+            .update({ role })
+            .eq('id', existingParticipant.id);
+            
+          setUserRole('speaker');
+          
+          toast({
+            title: 'You are now a speaker',
+            status: 'success',
+            duration: 2000,
+            isClosable: true,
+          });
+        } else {
+          toast({
+            title: 'Already joined',
+            description: 'You are already part of this space',
+            status: 'info',
+            duration: 2000,
+            isClosable: true,
+          });
+        }
+      } else {
+        // Add user as a new participant
+        const { error } = await supabase
+          .from('space_participants')
+          .insert({
+            space_id: id,
+            user_id: user.id,
+            role,
+          });
+          
+        if (error) throw error;
+        
+        // Fetch user profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url, username')
+          .eq('id', user.id)
+          .single();
+        
+        // Add user to the local users list
+        const newUser = {
+          id: user.id,
+          name: profile?.full_name || 'Anonymous',
+          username: profile?.username || 'user',
+          image: profile?.avatar_url,
+          role,
+          isMuted: true,
+        };
+        
+        setUsers(prev => [...prev, newUser]);
+        setUserRole(role);
+        
+        toast({
+          title: 'Joined successfully',
+          description: `You have joined the space as a ${role}`,
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
+    } catch (err: any) {
+      console.error('Error joining space:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to join space',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const leaveSpace = async () => {
+    if (!user || !id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('space_participants')
+        .delete()
+        .eq('space_id', id)
+        .eq('user_id', user.id);
+        
+      if (error) throw error;
+      
+      // Remove user from local users list
+      setUsers(users.filter(u => u.id !== user.id));
+      setUserRole(null);
+      
+      toast({
+        title: 'Left the space',
+        status: 'info',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      console.error('Error leaving space:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to leave space',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
 
   const toggleMute = () => {
     setIsMuted(!isMuted);
@@ -95,29 +320,53 @@ const SpaceDetailPage: React.FC = () => {
     });
   };
 
-  const leaveSpace = () => {
-    toast({
-      title: 'Left the space',
-      status: 'info',
-      duration: 2000,
-      isClosable: true,
-    });
-    navigate('/spaces');
-  };
-
-  const toggleFavorite = () => {
-    if (!space) return;
-    setSpace({ ...space, isFavorite: !space.isFavorite });
-    toast({
-      title: space.isFavorite ? 'Removed from favorites' : 'Added to favorites',
-      status: 'success',
-      duration: 2000,
-      isClosable: true,
-    });
+  const toggleFavorite = async () => {
+    if (!user || !id || !space) return;
+    
+    try {
+      if (space.isFavorite) {
+        // Remove from favorites
+        await supabase
+          .from('user_favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('space_id', id);
+      } else {
+        // Add to favorites
+        await supabase
+          .from('user_favorites')
+          .insert({
+            user_id: user.id,
+            space_id: id
+          });
+      }
+      
+      // Update the space object
+      setSpace({
+        ...space,
+        isFavorite: !space.isFavorite
+      });
+      
+      toast({
+        title: space.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+        status: 'success',
+        duration: 2000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      console.error('Error updating favorite:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to update favorite',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
   };
 
   const shareSpace = () => {
-    navigator.clipboard.writeText(window.location.href);
+    onCopy();
     toast({
       title: 'Link copied to clipboard',
       description: 'Share this link with your friends',
@@ -127,21 +376,90 @@ const SpaceDetailPage: React.FC = () => {
     });
   };
 
+  const copyShareLink = () => {
+    if (space?.shareLink) {
+      const shareUrl = `${window.location.origin}/join/${space.shareLink}`;
+      navigator.clipboard.writeText(shareUrl);
+      
+      toast({
+        title: "Link copied",
+        description: "Invite link has been copied to clipboard",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const endSpace = async () => {
+    if (!user || !id || !space) return;
+    
+    // Check if user is the host
+    if (space.host.id !== user.id) {
+      toast({
+        title: 'Not authorized',
+        description: 'Only the host can end the space',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+      return;
+    }
+    
+    try {
+      // Update the space status to 'ended'
+      const { error } = await supabase
+        .from('spaces')
+        .update({ status: 'ended' })
+        .eq('id', id);
+        
+      if (error) throw error;
+      
+      // Update the space object
+      setSpace({
+        ...space,
+        status: 'ended'
+      });
+      
+      toast({
+        title: 'Space ended',
+        description: 'This space has been marked as ended',
+        status: 'info',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (err: any) {
+      console.error('Error ending space:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to end space',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <Layout>
         <Container maxW="7xl" py={10} textAlign="center">
-          <Text>Loading space...</Text>
+          <Center h="400px">
+            <Spinner size="xl" color="purple.500" />
+          </Center>
         </Container>
       </Layout>
     );
   }
 
-  if (!space) {
+  if (error || !space) {
     return (
       <Layout>
         <Container maxW="7xl" py={10} textAlign="center">
-          <Heading size="lg" mb={4}>Space not found</Heading>
+          <Alert status="error" mb={6}>
+            <AlertIcon />
+            {error || 'Space not found'}
+          </Alert>
           <Button onClick={() => navigate('/spaces')}>Back to Spaces</Button>
         </Container>
       </Layout>
@@ -155,8 +473,8 @@ const SpaceDetailPage: React.FC = () => {
           <GridItem>
             <Box mb={6}>
               <Flex justify="space-between" align="center" mb={3}>
-                <Badge colorScheme={space.status === 'live' ? 'green' : 'blue'} px={2} py={1} borderRadius="full">
-                  {space.status === 'live' ? 'LIVE NOW' : 'SCHEDULED'}
+                <Badge colorScheme={space.status === 'live' ? 'green' : space.status === 'scheduled' ? 'blue' : 'gray'} px={2} py={1} borderRadius="full">
+                  {space.status === 'live' ? 'LIVE NOW' : space.status === 'scheduled' ? 'SCHEDULED' : 'ENDED'}
                 </Badge>
                 <Flex>
                   <IconButton
@@ -166,6 +484,7 @@ const SpaceDetailPage: React.FC = () => {
                     color={space.isFavorite ? 'yellow.500' : 'gray.400'}
                     mr={2}
                     onClick={toggleFavorite}
+                    isDisabled={!user}
                   />
                   <IconButton
                     aria-label="Share"
@@ -180,6 +499,31 @@ const SpaceDetailPage: React.FC = () => {
                     variant="ghost"
                     onClick={onOpen}
                   />
+                  
+                  {user && space.host.id === user.id && (
+                    <Menu>
+                      <MenuButton
+                        as={IconButton}
+                        aria-label="More options"
+                        icon={<MoreVertical size={16} />}
+                        variant="ghost"
+                        ml={2}
+                      />
+                      <MenuList>
+                        <MenuItem icon={<CopyIcon />} onClick={copyShareLink}>
+                          Copy invite link
+                        </MenuItem>
+                        {space.status === 'live' && (
+                          <MenuItem
+                            color="red.500"
+                            onClick={endSpace}
+                          >
+                            End space
+                          </MenuItem>
+                        )}
+                      </MenuList>
+                    </Menu>
+                  )}
                 </Flex>
               </Flex>
               
@@ -223,21 +567,48 @@ const SpaceDetailPage: React.FC = () => {
                 <UsersList users={users.filter(u => u.role === 'listener')} type="listeners" />
               </Box>
 
-              <Flex gap={4} justifyContent="center" mt={6}>
-                <Button
-                  colorScheme={isMuted ? 'gray' : 'green'}
-                  leftIcon={<Mic size={20} />}
-                  onClick={toggleMute}
-                >
-                  {isMuted ? 'Unmute' : 'Mute'}
-                </Button>
-                <Button
-                  colorScheme="red"
-                  variant="outline"
-                  onClick={leaveSpace}
-                >
-                  Leave
-                </Button>
+              <Flex direction="column" gap={4} mt={6}>
+                {!userRole && space.status === 'live' && (
+                  <Button
+                    colorScheme="purple"
+                    onClick={() => joinSpace('listener')}
+                    isLoading={isJoining}
+                  >
+                    Join Space
+                  </Button>
+                )}
+
+                {userRole === 'listener' && space.status === 'live' && (
+                  <Button
+                    colorScheme="purple"
+                    variant="outline"
+                    onClick={() => joinSpace('speaker')}
+                    isDisabled={isJoining}
+                  >
+                    Request to Speak
+                  </Button>
+                )}
+
+                {userRole && userRole !== 'host' && (
+                  <Button
+                    colorScheme={isMuted ? 'gray' : 'green'}
+                    leftIcon={<Mic size={20} />}
+                    onClick={toggleMute}
+                    isDisabled={space.status !== 'live'}
+                  >
+                    {isMuted ? 'Unmute' : 'Mute'}
+                  </Button>
+                )}
+
+                {userRole && (
+                  <Button
+                    colorScheme="red"
+                    variant="outline"
+                    onClick={leaveSpace}
+                  >
+                    Leave
+                  </Button>
+                )}
               </Flex>
             </Box>
           </GridItem>
@@ -274,6 +645,24 @@ const SpaceDetailPage: React.FC = () => {
                       {tag}
                     </Tag>
                   ))}
+                </Flex>
+              </>
+            )}
+            
+            {space.shareLink && (
+              <>
+                <Text fontWeight="bold" mb={2}>Share Link</Text>
+                <Flex align="center" mb={4}>
+                  <Text isTruncated flex="1">
+                    {`${window.location.origin}/join/${space.shareLink}`}
+                  </Text>
+                  <IconButton
+                    aria-label="Copy link"
+                    icon={<CopyIcon />}
+                    size="sm"
+                    ml={2}
+                    onClick={copyShareLink}
+                  />
                 </Flex>
               </>
             )}

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Box, 
   Heading, 
@@ -10,10 +10,16 @@ import {
   AvatarGroup, 
   IconButton,
   useColorModeValue,
-  useToast
+  useToast,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  Tooltip,
 } from '@chakra-ui/react';
-import { Link } from 'react-router-dom';
-import { StarIcon } from '@chakra-ui/icons';
+import { Link, useNavigate } from 'react-router-dom';
+import { StarIcon, CopyIcon, ExternalLinkIcon } from '@chakra-ui/icons';
+import { MoreVertical } from 'lucide-react';
 
 export interface SpaceProps {
   id: string;
@@ -34,10 +40,15 @@ export interface SpaceProps {
   };
   tags?: string[];
   isFavorite?: boolean;
+  shareLink?: string;
 }
 
-const SpaceCard: React.FC<{ space: SpaceProps }> = ({ space }) => {
-  const [isFavorite, setIsFavorite] = useState(space.isFavorite);
+interface SpaceCardProps {
+  space: SpaceProps;
+  onToggleFavorite?: (id: string) => void;
+}
+
+const SpaceCard: React.FC<SpaceCardProps> = ({ space, onToggleFavorite }) => {
   const bgColor = useColorModeValue('white', 'gray.700');
   const statusColor = {
     live: 'green',
@@ -45,18 +56,39 @@ const SpaceCard: React.FC<{ space: SpaceProps }> = ({ space }) => {
     ended: 'gray',
   }[space.status];
   const toast = useToast();
+  const navigate = useNavigate();
 
   const handleToggleFavorite = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsFavorite(!isFavorite);
     
-    toast({
-      title: isFavorite ? "Removed from favorites" : "Added to favorites",
-      status: "success",
-      duration: 2000,
-      isClosable: true,
-    });
+    if (onToggleFavorite) {
+      onToggleFavorite(space.id);
+    }
+  };
+
+  const copyShareLink = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (space.shareLink) {
+      const shareUrl = `${window.location.origin}/join/${space.shareLink}`;
+      navigator.clipboard.writeText(shareUrl);
+      
+      toast({
+        title: "Link copied",
+        description: "Share link has been copied to clipboard",
+        status: "success",
+        duration: 2000,
+        isClosable: true,
+      });
+    }
+  };
+
+  const openInNewTab = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(`/space/${space.id}`, '_blank');
   };
 
   return (
@@ -83,14 +115,38 @@ const SpaceCard: React.FC<{ space: SpaceProps }> = ({ space }) => {
               ? 'SCHEDULED'
               : 'ENDED'}
         </Badge>
-        <IconButton
-          aria-label="Favorite"
-          icon={<StarIcon />}
-          variant="ghost"
-          color={isFavorite ? 'yellow.500' : 'gray.400'}
-          size="sm"
-          onClick={handleToggleFavorite}
-        />
+        <Flex>
+          <Tooltip label={space.isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+            <IconButton
+              aria-label="Favorite"
+              icon={<StarIcon />}
+              variant="ghost"
+              color={space.isFavorite ? 'yellow.500' : 'gray.400'}
+              size="sm"
+              onClick={handleToggleFavorite}
+              mr={1}
+            />
+          </Tooltip>
+          
+          <Menu>
+            <MenuButton
+              as={IconButton}
+              aria-label="More options"
+              icon={<MoreVertical size={16} />}
+              variant="ghost"
+              size="sm"
+              onClick={e => e.stopPropagation()}
+            />
+            <MenuList onClick={e => e.stopPropagation()}>
+              <MenuItem icon={<CopyIcon />} onClick={copyShareLink}>
+                Copy share link
+              </MenuItem>
+              <MenuItem icon={<ExternalLinkIcon />} onClick={openInNewTab}>
+                Open in new tab
+              </MenuItem>
+            </MenuList>
+          </Menu>
+        </Flex>
       </Flex>
 
       <Heading size="md" mb={2} noOfLines={1}>
