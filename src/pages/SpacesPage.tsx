@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -319,6 +320,22 @@ const SpacesPage: React.FC = () => {
   };
 
   const filteredSpaces = spaces.filter(space => {
+    // Filter by search query
+    const matchesSearch = !searchQuery 
+      || space.title.toLowerCase().includes(searchQuery.toLowerCase())
+      || space.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Filter by status
+    const matchesFilter = filter === 'all' ||
+                        (filter === 'live' && space.status === 'live') ||
+                        (filter === 'scheduled' && space.status === 'scheduled') ||
+                        (filter === 'ended' && space.status === 'ended');
+    
+    return matchesSearch && matchesFilter;
+  });
+
+  // Add this line to filter followed spaces as well
+  const filteredFollowedSpaces = followedSpaces.filter(space => {
     // Filter by search query
     const matchesSearch = !searchQuery 
       || space.title.toLowerCase().includes(searchQuery.toLowerCase())
