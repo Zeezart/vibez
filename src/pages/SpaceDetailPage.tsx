@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -45,6 +44,7 @@ import UsersList from '../components/UsersList';
 import { SpaceProps } from '../components/SpaceCard';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from '../context/AuthContext';
+import { Profile } from '../lib/supabase-types';
 
 const SpaceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -81,8 +81,7 @@ const SpaceDetailPage: React.FC = () => {
             scheduled_for,
             host_id,
             share_link,
-            created_at,
-            profiles:host_id(full_name, avatar_url, id, username)
+            created_at
           `)
           .eq('id', id)
           .single();
@@ -90,37 +89,49 @@ const SpaceDetailPage: React.FC = () => {
         if (spaceError) throw spaceError;
         if (!spaceData) throw new Error('Space not found');
         
+        // Fetch host profile
+        const { data: hostProfile, error: hostError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, username')
+          .eq('id', spaceData.host_id)
+          .single();
+          
+        if (hostError) throw hostError;
+        
         // Fetch participants
-        const { data: participants, error: participantsError } = await supabase
+        const { data: participantsData, error: participantsError } = await supabase
           .from('space_participants')
           .select(`
             id,
             role,
-            user_id,
-            profiles:user_id(full_name, avatar_url, id, username)
+            user_id
           `)
           .eq('space_id', id);
           
         if (participantsError) throw participantsError;
         
-        // Check if current user is a participant and get their role
-        if (user) {
-          const userParticipant = participants?.find(p => p.user_id === user.id);
-          if (userParticipant) {
-            setUserRole(userParticipant.role as 'host' | 'speaker' | 'listener');
-          }
-        }
+        // Fetch participant profiles
+        const participantIds = participantsData?.map(p => p.user_id) || [];
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, username')
+          .in('id', participantIds);
+          
+        if (profilesError) throw profilesError;
         
-        // Format participants for the UsersList component
-        const usersFormatted = participants?.map(p => ({
-          id: p.user_id,
-          name: p.profiles?.full_name || 'Anonymous',
-          username: p.profiles?.username || 'user',
-          image: p.profiles?.avatar_url,
-          role: p.role,
-          isSpeaking: false,
-          isMuted: p.role !== 'host',
-        })) || [];
+        // Map profiles to participants
+        const usersFormatted = participantsData?.map(p => {
+          const profile = profilesData?.find(prof => prof.id === p.user_id);
+          return {
+            id: p.user_id,
+            name: profile?.full_name || 'Anonymous',
+            username: profile?.username || 'user',
+            image: profile?.avatar_url,
+            role: p.role,
+            isSpeaking: false,
+            isMuted: p.role !== 'host',
+          };
+        }) || [];
         
         // Check if user has favorited this space
         let isFavorited = false;
@@ -135,6 +146,14 @@ const SpaceDetailPage: React.FC = () => {
           isFavorited = !!favorite;
         }
         
+        // Check if current user is a participant and get their role
+        if (user) {
+          const userParticipant = participantsData?.find(p => p.user_id === user.id);
+          if (userParticipant) {
+            setUserRole(userParticipant.role as 'host' | 'speaker' | 'listener');
+          }
+        }
+        
         // Format the space object
         const formattedSpace: SpaceProps = {
           id: spaceData.id,
@@ -144,15 +163,15 @@ const SpaceDetailPage: React.FC = () => {
           scheduledFor: spaceData.scheduled_for,
           host: {
             id: spaceData.host_id,
-            name: spaceData.profiles?.full_name || 'Anonymous',
-            image: spaceData.profiles?.avatar_url,
+            name: hostProfile?.full_name || 'Anonymous',
+            image: hostProfile?.avatar_url,
           },
           participants: usersFormatted.map(u => ({
             id: u.id,
             name: u.name,
             image: u.image,
           })),
-          participantsCount: participants?.length || 0,
+          participantsCount: participantsData?.length || 0,
           tags: [], // We'll add tags support later
           isFavorite: isFavorited,
           shareLink: spaceData.share_link,

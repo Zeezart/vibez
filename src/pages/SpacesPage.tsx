@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -48,7 +47,7 @@ const SpacesPage: React.FC = () => {
       setError(null);
       
       try {
-        // Fetch all spaces with their participant counts
+        // Fetch all spaces
         const { data: spacesData, error: spacesError } = await supabase
           .from('spaces')
           .select(`
@@ -59,30 +58,20 @@ const SpacesPage: React.FC = () => {
             scheduled_for,
             share_link,
             host_id,
-            created_at,
-            profiles:host_id(full_name, avatar_url, id, username)
+            created_at
           `)
           .order('created_at', { ascending: false });
           
         if (spacesError) throw spacesError;
         
-        // Fetch participant counts for each space
-        const spaceIds = spacesData?.map(space => space.id) || [];
-        const participantCounts: Record<string, number> = {};
-        
-        if (spaceIds.length > 0) {
-          const { data: countData, error: countError } = await supabase
-            .from('space_participants')
-            .select('space_id, count')
-            .in('space_id', spaceIds)
-            .group('space_id');
-            
-          if (!countError && countData) {
-            countData.forEach(item => {
-              participantCounts[item.space_id] = parseInt(item.count);
-            });
-          }
-        }
+        // Get host info for all spaces
+        const hostIds = spacesData?.map(space => space.host_id) || [];
+        const { data: hosts, error: hostsError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url, username')
+          .in('id', hostIds);
+          
+        if (hostsError) throw hostsError;
         
         // If user is authenticated, fetch their favorites
         let userFavorites: Set<string> = new Set();
@@ -100,19 +89,36 @@ const SpacesPage: React.FC = () => {
         
         setFavorites(userFavorites);
         
-        // Fetch some participants for each space
+        // Fetch participants for each space
         const spacesWithParticipants = await Promise.all((spacesData || []).map(async (space) => {
-          const { data: participants } = await supabase
+          // Get participants count
+          const { count: participantCount, error: countError } = await supabase
             .from('space_participants')
-            .select('user_id, role, profiles:user_id(full_name, avatar_url, id, username)')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('space_id', space.id);
+            
+          if (countError) throw countError;
+          
+          // Get up to 5 participants
+          const { data: participants, error: participantsError } = await supabase
+            .from('space_participants')
+            .select('user_id')
             .eq('space_id', space.id)
             .limit(5);
+            
+          if (participantsError) throw participantsError;
           
-          const participantsList = participants?.map(p => ({
-            id: p.user_id,
-            name: p.profiles?.full_name || 'Anonymous',
-            image: p.profiles?.avatar_url,
-          })) || [];
+          // Get participant profiles
+          const participantIds = participants?.map(p => p.user_id) || [];
+          const { data: participantProfiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .in('id', participantIds);
+            
+          if (profilesError) throw profilesError;
+          
+          // Find the host
+          const host = hosts?.find(h => h.id === space.host_id);
           
           return {
             id: space.id,
@@ -120,12 +126,16 @@ const SpacesPage: React.FC = () => {
             description: space.description || '',
             status: space.status as 'live' | 'scheduled' | 'ended',
             scheduledFor: space.scheduled_for,
-            participantsCount: participantCounts[space.id] || 0,
-            participants: participantsList,
+            participantsCount: participantCount || 0,
+            participants: participantProfiles?.map(p => ({
+              id: p.id,
+              name: p.full_name || 'Anonymous',
+              image: p.avatar_url,
+            })) || [],
             host: {
-              id: space.profiles?.id || '',
-              name: space.profiles?.full_name || 'Anonymous',
-              image: space.profiles?.avatar_url,
+              id: host?.id || '',
+              name: host?.full_name || 'Anonymous',
+              image: host?.avatar_url,
             },
             tags: [], // We'll add tags support later
             isFavorite: userFavorites.has(space.id),

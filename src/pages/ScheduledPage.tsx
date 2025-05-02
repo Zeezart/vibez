@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -44,13 +43,21 @@ const ScheduledPage: React.FC = () => {
             status,
             scheduled_for,
             host_id,
-            share_link,
-            profiles:host_id(full_name, avatar_url, id, username)
+            share_link
           `)
           .eq('status', 'scheduled')
           .order('scheduled_for', { ascending: true });
           
         if (spacesError) throw spacesError;
+        
+        // Get hosts info
+        const hostIds = spacesData?.map(space => space.host_id) || [];
+        const { data: hosts, error: hostsError } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', hostIds);
+          
+        if (hostsError) throw hostsError;
 
         // Determine which spaces are favorited by current user
         let userFavorites = new Set<string>();
@@ -67,11 +74,32 @@ const ScheduledPage: React.FC = () => {
         
         // Get participants for each space
         const spacesWithParticipants = await Promise.all((spacesData || []).map(async (space) => {
-          const { data: participants } = await supabase
+          // Get participants count
+          const { count, error: countError } = await supabase
             .from('space_participants')
-            .select('user_id, profiles:user_id(full_name, avatar_url)')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('space_id', space.id);
+            
+          if (countError) throw countError;
+          
+          // Get participants details (limited to 5)
+          const { data: participants, error: participantsError } = await supabase
+            .from('space_participants')
+            .select('user_id')
             .eq('space_id', space.id)
             .limit(5);
+            
+          if (participantsError) throw participantsError;
+          
+          // Get participants profiles
+          const participantIds = participants?.map(p => p.user_id) || [];
+          const { data: participantProfiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, avatar_url')
+            .in('id', participantIds);
+            
+          // Find the host
+          const host = hosts?.find(h => h.id === space.host_id);
             
           return {
             id: space.id,
@@ -79,16 +107,16 @@ const ScheduledPage: React.FC = () => {
             description: space.description || '',
             status: space.status as 'live' | 'scheduled' | 'ended',
             scheduledFor: space.scheduled_for,
-            participantsCount: participants?.length || 0,
-            participants: participants?.map(p => ({
-              id: p.user_id,
-              name: p.profiles?.full_name || 'Anonymous',
-              image: p.profiles?.avatar_url,
+            participantsCount: count || 0,
+            participants: participantProfiles?.map(p => ({
+              id: p.id,
+              name: p.full_name || 'Anonymous',
+              image: p.avatar_url,
             })) || [],
             host: {
               id: space.host_id,
-              name: space.profiles?.full_name || 'Anonymous',
-              image: space.profiles?.avatar_url,
+              name: host?.full_name || 'Anonymous',
+              image: host?.avatar_url,
             },
             tags: [], // We'll add tags support later
             isFavorite: userFavorites.has(space.id),
