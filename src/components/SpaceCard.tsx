@@ -1,25 +1,32 @@
 
 import React from 'react';
-import { 
-  Box, 
-  Heading, 
-  Text, 
-  Flex, 
-  Badge, 
-  Avatar, 
-  AvatarGroup, 
+import { Link } from 'react-router-dom';
+import {
+  Box,
+  Heading,
+  Text,
+  Badge,
+  Flex,
+  Avatar,
+  AvatarGroup,
+  Button,
   IconButton,
+  HStack,
   useColorModeValue,
-  useToast,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
-  Tooltip,
 } from '@chakra-ui/react';
-import { Link, useNavigate } from 'react-router-dom';
-import { StarIcon, CopyIcon, ExternalLinkIcon } from '@chakra-ui/icons';
-import { MoreVertical } from 'lucide-react';
+import { StarIcon } from '@chakra-ui/icons';
+
+export interface ParticipantProps {
+  id: string;
+  name: string;
+  image?: string;
+}
+
+export interface HostProps {
+  id: string;
+  name: string;
+  image?: string;
+}
 
 export interface SpaceProps {
   id: string;
@@ -28,16 +35,8 @@ export interface SpaceProps {
   status: 'live' | 'scheduled' | 'ended';
   scheduledFor?: string;
   participantsCount: number;
-  participants: {
-    id: string;
-    name: string;
-    image?: string;
-  }[];
-  host: {
-    id: string;
-    name: string;
-    image?: string;
-  };
+  participants: ParticipantProps[];
+  host: HostProps;
   tags?: string[];
   isFavorite?: boolean;
   shareLink?: string;
@@ -45,154 +44,126 @@ export interface SpaceProps {
 
 interface SpaceCardProps {
   space: SpaceProps;
-  onToggleFavorite?: (id: string) => void;
+  onToggleFavorite?: () => void;
 }
 
 const SpaceCard: React.FC<SpaceCardProps> = ({ space, onToggleFavorite }) => {
-  const bgColor = useColorModeValue('white', 'gray.700');
-  const statusColor = {
-    live: 'green',
-    scheduled: 'blue',
-    ended: 'gray',
-  }[space.status];
-  const toast = useToast();
-  const navigate = useNavigate();
-
-  const handleToggleFavorite = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (onToggleFavorite) {
-      onToggleFavorite(space.id);
+  const bgColor = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  
+  // Determine status color
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'live': return 'green';
+      case 'scheduled': return 'blue';
+      case 'ended': return 'gray';
+      default: return 'gray';
     }
   };
-
-  const copyShareLink = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  
+  const formatScheduledDate = (dateString?: string) => {
+    if (!dateString) return '';
     
-    if (space.shareLink) {
-      const shareUrl = `${window.location.origin}/join/${space.shareLink}`;
-      navigator.clipboard.writeText(shareUrl);
-      
-      toast({
-        title: "Link copied",
-        description: "Share link has been copied to clipboard",
-        status: "success",
-        duration: 2000,
-        isClosable: true,
-      });
-    }
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', { 
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(date);
   };
-
-  const openInNewTab = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    window.open(`/space/${space.id}`, '_blank');
-  };
-
+  
   return (
     <Box
-      as={Link}
-      to={`/space/${space.id}`}
-      bg={bgColor}
-      p={5}
+      borderWidth="1px"
       borderRadius="lg"
+      overflow="hidden"
       boxShadow="md"
-      _hover={{
-        transform: 'translateY(-2px)',
-        boxShadow: 'lg',
-        textDecoration: 'none',
-      }}
-      transition="all 0.2s"
+      bg={bgColor}
+      borderColor={borderColor}
       position="relative"
+      height="100%"
+      display="flex"
+      flexDirection="column"
     >
-      <Flex justify="space-between" align="center" mb={3}>
-        <Badge colorScheme={statusColor} px={2} py={1} borderRadius="full">
-          {space.status === 'live' 
-            ? 'LIVE NOW' 
-            : space.status === 'scheduled' 
-              ? 'SCHEDULED'
-              : 'ENDED'}
-        </Badge>
-        <Flex>
-          <Tooltip label={space.isFavorite ? 'Remove from favorites' : 'Add to favorites'}>
+      {/* Use Link component instead of anchor tag */}
+      <Box as={Link} to={`/space/${space.id}`} flex="1" p={5} _hover={{ textDecoration: 'none' }}>
+        <Flex justify="space-between" align="start" mb={2}>
+          <Badge colorScheme={getStatusColor(space.status)} fontSize="sm" px={2} py={1} borderRadius="md">
+            {space.status === 'live' ? 'Live Now' : 
+             space.status === 'scheduled' ? `Scheduled for ${formatScheduledDate(space.scheduledFor)}` : 
+             'Ended'}
+          </Badge>
+          
+          {onToggleFavorite && (
             <IconButton
               aria-label="Favorite"
               icon={<StarIcon />}
-              variant="ghost"
-              color={space.isFavorite ? 'yellow.500' : 'gray.400'}
               size="sm"
-              onClick={handleToggleFavorite}
-              mr={1}
+              variant={space.isFavorite ? "solid" : "outline"}
+              colorScheme={space.isFavorite ? "yellow" : "gray"}
+              onClick={(e) => {
+                e.preventDefault(); // Prevent navigation
+                onToggleFavorite();
+              }}
             />
-          </Tooltip>
-          
-          <Menu>
-            <MenuButton
-              as={IconButton}
-              aria-label="More options"
-              icon={<MoreVertical size={16} />}
-              variant="ghost"
-              size="sm"
-              onClick={e => e.stopPropagation()}
-            />
-            <MenuList onClick={e => e.stopPropagation()}>
-              <MenuItem icon={<CopyIcon />} onClick={copyShareLink}>
-                Copy share link
-              </MenuItem>
-              <MenuItem icon={<ExternalLinkIcon />} onClick={openInNewTab}>
-                Open in new tab
-              </MenuItem>
-            </MenuList>
-          </Menu>
+          )}
         </Flex>
-      </Flex>
-
-      <Heading size="md" mb={2} noOfLines={1}>
-        {space.title}
-      </Heading>
-      
-      <Text color="gray.600" fontSize="sm" mb={4} noOfLines={2}>
-        {space.description}
-      </Text>
-      
-      {space.status === 'scheduled' && space.scheduledFor && (
-        <Text fontSize="sm" color="gray.500" mb={2}>
-          {new Date(space.scheduledFor).toLocaleString()}
-        </Text>
-      )}
-
-      <Flex align="center" mt={4}>
-        <Avatar size="sm" src={space.host.image} name={space.host.name} mr={2} />
-        <Text fontWeight="medium" fontSize="sm">
-          {space.host.name}
-        </Text>
-      </Flex>
-
-      <Flex justify="space-between" align="center" mt={4}>
-        <AvatarGroup size="sm" max={3}>
-          {space.participants.map((participant) => (
-            <Avatar 
-              key={participant.id}
-              name={participant.name}
-              src={participant.image}
-            />
-          ))}
-        </AvatarGroup>
         
-        <Text fontSize="sm" color="gray.500">
-          {space.participantsCount} {space.participantsCount === 1 ? 'listener' : 'listeners'}
+        <Heading size="md" mb={2} noOfLines={2}>
+          {space.title}
+        </Heading>
+        
+        <Text fontSize="sm" color="gray.500" mb={4} noOfLines={3}>
+          {space.description || 'No description provided.'}
         </Text>
-      </Flex>
-
-      {space.tags && space.tags.length > 0 && (
-        <Flex mt={4} flexWrap="wrap" gap={2}>
-          {space.tags.map((tag) => (
-            <Badge key={tag} colorScheme="purple" variant="subtle" px={2} py={1}>
-              {tag}
-            </Badge>
-          ))}
+        
+        <Flex justifyContent="space-between" alignItems="center" mt="auto">
+          <HStack spacing={2}>
+            <Avatar size="sm" src={space.host.image} name={space.host.name} />
+            <Text fontSize="sm" fontWeight="medium">
+              {space.host.name}
+            </Text>
+          </HStack>
+          
+          <HStack>
+            <AvatarGroup size="xs" max={3}>
+              {space.participants.map(participant => (
+                <Avatar key={participant.id} src={participant.image} name={participant.name} />
+              ))}
+            </AvatarGroup>
+            <Text fontSize="xs" color="gray.500">
+              {space.participantsCount} {space.participantsCount === 1 ? 'participant' : 'participants'}
+            </Text>
+          </HStack>
+        </Flex>
+        
+        {space.tags && space.tags.length > 0 && (
+          <Flex mt={4} flexWrap="wrap" gap={2}>
+            {space.tags.map((tag, index) => (
+              <Badge key={index} colorScheme="purple" variant="outline" fontSize="xs">
+                {tag}
+              </Badge>
+            ))}
+          </Flex>
+        )}
+      </Box>
+      
+      {space.shareLink && (
+        <Flex p={3} borderTopWidth="1px" borderColor={borderColor} justify="center">
+          {/* Also update this link to use Link component if it navigates within the app */}
+          <Button 
+            as={Link}
+            to={`/join/${space.shareLink}`}
+            size="sm" 
+            colorScheme="purple" 
+            variant="outline" 
+            width="100%"
+            onClick={(e) => e.stopPropagation()}
+          >
+            Share Space
+          </Button>
         </Flex>
       )}
     </Box>
