@@ -10,7 +10,8 @@ import {
   Badge,
   Tooltip
 } from '@chakra-ui/react';
-import { Mic } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
+import { useAudio } from '../context/AudioContext';
 
 interface User {
   id: string;
@@ -28,6 +29,8 @@ interface UsersListProps {
 }
 
 const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
+  const { activeSpeakers } = useAudio();
+  
   const filteredUsers = users.filter(user => 
     type === 'speakers' 
       ? (user.role === 'host' || user.role === 'speaker')
@@ -44,48 +47,57 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
       </Text>
       
       <VStack spacing={4} align="stretch">
-        {filteredUsers.map(user => (
-          <HStack key={user.id} spacing={3} p={2} borderRadius="md" _hover={{ bg: 'gray.50' }}>
-            <Tooltip label={user.isMuted ? 'Muted' : 'Speaking'} placement="top">
-              <Box position="relative">
-                <Avatar 
-                  size="md" 
-                  name={user.name} 
-                  src={user.image} 
-                  borderWidth={user.isSpeaking ? 2 : 0}
-                  borderColor="green.400"
-                />
-                {(user.role === 'host' || user.role === 'speaker') && (
-                  <Flex 
-                    position="absolute" 
-                    bottom="-2px" 
-                    right="-2px" 
-                    bg={user.isMuted ? "red.500" : "green.500"} 
-                    p={1} 
-                    borderRadius="full"
-                    boxSize={6}
-                    align="center"
-                    justify="center"
-                  >
-                    <Mic size={12} color="white" />
-                  </Flex>
-                )}
-              </Box>
-            </Tooltip>
-            
-            <Flex direction="column">
-              <HStack>
-                <Text fontWeight="medium">{user.name}</Text>
-                {user.role === 'host' && (
-                  <Badge colorScheme="purple" variant="solid" fontSize="2xs">
-                    HOST
-                  </Badge>
-                )}
-              </HStack>
-              <Text fontSize="sm" color="gray.500">@{user.username}</Text>
-            </Flex>
-          </HStack>
-        ))}
+        {filteredUsers.map(user => {
+          const isActive = activeSpeakers.includes(user.id);
+          
+          return (
+            <HStack key={user.id} spacing={3} p={2} borderRadius="md" _hover={{ bg: 'gray.50' }}>
+              <Tooltip label={user.isMuted ? 'Muted' : (isActive ? 'Speaking' : 'Not Speaking')} placement="top">
+                <Box position="relative">
+                  <Avatar 
+                    size="md" 
+                    name={user.name} 
+                    src={user.image} 
+                    borderWidth={isActive ? 2 : 0}
+                    borderColor="green.400"
+                  />
+                  {(user.role === 'host' || user.role === 'speaker') && (
+                    <Flex 
+                      position="absolute" 
+                      bottom="-2px" 
+                      right="-2px" 
+                      bg={user.isMuted || !isActive ? "red.500" : "green.500"} 
+                      p={1} 
+                      borderRadius="full"
+                      boxSize={6}
+                      align="center"
+                      justify="center"
+                    >
+                      {user.isMuted || !isActive ? <MicOff size={12} color="white" /> : <Mic size={12} color="white" />}
+                    </Flex>
+                  )}
+                </Box>
+              </Tooltip>
+              
+              <Flex direction="column">
+                <HStack>
+                  <Text fontWeight="medium">{user.name}</Text>
+                  {user.role === 'host' && (
+                    <Badge colorScheme="purple" variant="solid" fontSize="2xs">
+                      HOST
+                    </Badge>
+                  )}
+                  {isActive && (
+                    <Badge colorScheme="green" variant="solid" fontSize="2xs">
+                      LIVE
+                    </Badge>
+                  )}
+                </HStack>
+                <Text fontSize="sm" color="gray.500">@{user.username}</Text>
+              </Flex>
+            </HStack>
+          );
+        })}
       </VStack>
     </Box>
   );
