@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
@@ -12,7 +11,7 @@ import {
   Divider,
   useToast,
 } from '@chakra-ui/react';
-import { supabase } from '../lib/supabase';
+import { supabase, fetchSpaceMessages, fetchMessageById } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 interface Message {
@@ -78,14 +77,12 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
   
   const fetchMessages = async () => {
     try {
-      // Use raw SQL query to join tables
-      const { data, error } = await supabase
-        .rpc('get_space_messages', { p_space_id: spaceId });
+      const { data, error } = await fetchSpaceMessages(spaceId);
       
       if (error) throw error;
       
       if (data) {
-        setMessages(data as Message[]);
+        setMessages(data as unknown as Message[]);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -94,14 +91,12 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
   
   const fetchMessage = async (messageId: string) => {
     try {
-      // Use raw SQL query to get a single message with user data
-      const { data, error } = await supabase
-        .rpc('get_message_by_id', { p_message_id: messageId });
+      const { data, error } = await fetchMessageById(messageId);
       
       if (error) throw error;
       
-      if (data && data[0]) {
-        setMessages(prev => [...prev, data[0] as Message]);
+      if (data) {
+        setMessages(prev => [...prev, data as unknown as Message]);
       }
     } catch (error) {
       console.error('Error fetching single message:', error);
