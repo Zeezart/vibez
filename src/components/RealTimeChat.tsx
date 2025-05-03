@@ -12,7 +12,7 @@ import {
   Divider,
   useToast,
 } from '@chakra-ui/react';
-import { supabase } from '../integrations/supabase/client';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
 interface Message {
@@ -78,20 +78,14 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
   
   const fetchMessages = async () => {
     try {
+      // Use raw SQL query to join tables
       const { data, error } = await supabase
-        .from('space_messages')
-        .select(`
-          *,
-          user:profiles(full_name, username, avatar_url)
-        `)
-        .eq('space_id', spaceId)
-        .order('created_at', { ascending: true })
-        .limit(100);
-        
+        .rpc('get_space_messages', { p_space_id: spaceId });
+      
       if (error) throw error;
       
       if (data) {
-        setMessages(data as unknown as Message[]);
+        setMessages(data as Message[]);
       }
     } catch (error) {
       console.error('Error fetching messages:', error);
@@ -100,19 +94,14 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
   
   const fetchMessage = async (messageId: string) => {
     try {
+      // Use raw SQL query to get a single message with user data
       const { data, error } = await supabase
-        .from('space_messages')
-        .select(`
-          *,
-          user:profiles(full_name, username, avatar_url)
-        `)
-        .eq('id', messageId)
-        .single();
-        
+        .rpc('get_message_by_id', { p_message_id: messageId });
+      
       if (error) throw error;
       
-      if (data) {
-        setMessages(prev => [...prev, data as unknown as Message]);
+      if (data && data[0]) {
+        setMessages(prev => [...prev, data[0] as Message]);
       }
     } catch (error) {
       console.error('Error fetching single message:', error);
