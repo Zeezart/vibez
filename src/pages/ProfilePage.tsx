@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -24,6 +25,7 @@ import {
   ModalFooter,
   Spinner,
   useToast,
+  Image,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
@@ -36,6 +38,8 @@ const ProfilePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     fullName: '',
     username: '',
@@ -62,6 +66,7 @@ const ProfilePage = () => {
     setIsLoading(true);
 
     try {
+      // Update profile info
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -72,6 +77,11 @@ const ProfilePage = () => {
         .eq('id', user?.id);
 
       if (error) throw error;
+
+      // Process file upload if there's a selected file
+      if (selectedFile) {
+        await handleFileUpload();
+      }
 
       // Refresh the profile data
       if (refreshProfile) {
@@ -98,17 +108,27 @@ const ProfilePage = () => {
     }
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
+    setSelectedFile(file);
+    
+    // Create a preview
+    const objectUrl = URL.createObjectURL(file);
+    setPreviewImage(objectUrl);
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile || !user) return;
+    
     setUploadLoading(true);
 
     try {
       // Upload the file to Supabase Storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
       const filePath = `${fileName}`;
 
       // Create avatars bucket if it doesn't exist
@@ -125,7 +145,7 @@ const ProfilePage = () => {
 
       const { error: uploadError, data } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true });
+        .upload(filePath, selectedFile, { upsert: true });
 
       if (uploadError) throw uploadError;
 
@@ -143,18 +163,13 @@ const ProfilePage = () => {
           avatar_url: publicURL.publicUrl,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', user?.id);
+        .eq('id', user.id);
 
       if (updateError) throw updateError;
 
       // Update state
       setAvatarUrl(publicURL.publicUrl);
       
-      // Refresh the profile data
-      if (refreshProfile) {
-        await refreshProfile();
-      }
-
       toast({
         title: "Avatar updated",
         description: "Your profile picture has been updated",
@@ -163,7 +178,6 @@ const ProfilePage = () => {
         isClosable: true,
       });
 
-      onClose();
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
       toast({
@@ -175,6 +189,7 @@ const ProfilePage = () => {
       });
     } finally {
       setUploadLoading(false);
+      onClose();
     }
   };
 
@@ -296,23 +311,51 @@ const ProfilePage = () => {
                 <Spinner size="xl" color="purple.500" />
               </Flex>
             ) : (
-              <FormControl>
-                <FormLabel>Select an image</FormLabel>
-                <Input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  p={1}
-                />
-                <Text mt={2} fontSize="sm" color="gray.500">
-                  Maximum file size: 2 MB
-                </Text>
-              </FormControl>
+              <VStack spacing={4}>
+                <FormControl>
+                  <FormLabel>Select an image</FormLabel>
+                  <Input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    p={1}
+                  />
+                  <Text mt={2} fontSize="sm" color="gray.500">
+                    Maximum file size: 2 MB
+                  </Text>
+                </FormControl>
+                
+                {previewImage && (
+                  <Box mt={4} textAlign="center">
+                    <Text mb={2} fontWeight="bold">Preview:</Text>
+                    <Image 
+                      src={previewImage} 
+                      alt="Preview" 
+                      maxH="200px" 
+                      borderRadius="md"
+                      mx="auto"
+                    />
+                  </Box>
+                )}
+              </VStack>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button variant="ghost" onClick={onClose}>
+            <Button 
+              variant="ghost" 
+              mr={3} 
+              onClick={onClose}
+              isDisabled={uploadLoading}
+            >
               Cancel
+            </Button>
+            <Button 
+              colorScheme="purple" 
+              onClick={handleFileUpload}
+              isLoading={uploadLoading}
+              isDisabled={!selectedFile || uploadLoading}
+            >
+              Upload
             </Button>
           </ModalFooter>
         </ModalContent>

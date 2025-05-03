@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Box,
@@ -47,7 +47,7 @@ interface SpaceCardProps {
   onToggleFavorite?: () => void;
 }
 
-const SpaceCard: React.FC<SpaceCardProps> = ({ space, onToggleFavorite }) => {
+const SpaceCard: React.FC<SpaceCardProps> = memo(({ space, onToggleFavorite }) => {
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   
@@ -152,7 +152,6 @@ const SpaceCard: React.FC<SpaceCardProps> = ({ space, onToggleFavorite }) => {
       
       {space.shareLink && (
         <Flex p={3} borderTopWidth="1px" borderColor={borderColor} justify="center">
-          {/* Also update this link to use Link component if it navigates within the app */}
           <Button 
             as={Link}
             to={`/join/${space.shareLink}`}
@@ -168,6 +167,6 @@ const SpaceCard: React.FC<SpaceCardProps> = ({ space, onToggleFavorite }) => {
       )}
     </Box>
   );
-};
+});
 
 export default SpaceCard;

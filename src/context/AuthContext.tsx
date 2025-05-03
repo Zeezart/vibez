@@ -1,4 +1,5 @@
-import React, { useState, useEffect, createContext, useContext } from 'react';
+
+import React, { useState, useEffect, createContext, useContext, useCallback, useMemo } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -30,7 +31,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (!user) return;
     
     try {
@@ -46,13 +47,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
+    // First check for existing session
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        setUser(session.user);
+      }
+      setLoading(false);
+    };
+    
+    getInitialSession();
+    
+    // Then set up the auth listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (event, session: Session | null) => {
-        if (event === 'SIGNED_IN') {
-          setUser(session?.user || null);
+        if (event === 'SIGNED_IN' && session) {
+          setUser(session.user);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setProfile(null);
@@ -60,11 +73,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         } else if (session) {
           setUser(session.user);
         }
-        setLoading(false);
       }
     );
 
-    // Fetch user profile when auth state changes
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  // Fetch user profile when auth state changes
+  useEffect(() => {
     const fetchProfile = async () => {
       if (user) {
         await refreshProfile();
@@ -74,11 +92,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
 
     fetchProfile();
-    
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
-  }, [user, navigate]);
+  }, [user, refreshProfile]);
 
   const signIn = async (email: string, password: string) => {
     setLoading(true);
@@ -148,18 +162,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => {
+    return {
+      user,
+      profile,
+      signIn,
+      signUp,
+      signOut,
+      loading,
+      refreshProfile,
+    };
+  }, [user, profile, loading, refreshProfile]);
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        signIn,
-        signUp,
-        signOut,
-        loading,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

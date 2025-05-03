@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import {
   Box,
   Avatar,
@@ -21,7 +21,7 @@ interface UserProfileCardProps {
   onFollowChange?: (isNowFollowing: boolean) => void;
 }
 
-const UserProfileCard: React.FC<UserProfileCardProps> = ({
+const UserProfileCard: React.FC<UserProfileCardProps> = memo(({
   userId,
   name,
   username,
@@ -136,6 +136,6 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
       )}
     </HStack>
   );
-};
+});
 
 export default UserProfileCard;
