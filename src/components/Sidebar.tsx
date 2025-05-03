@@ -33,7 +33,9 @@ const Sidebar: React.FC = () => {
       color={location.pathname === path ? 'brand.600' : 'gray.600'}
       as={Link}
       to={path}
-      w="full"
+      width="auto"
+      maxWidth="100%"
+      zIndex={1}
     >
       {icon}
       <Text ml="4" fontWeight="medium">{label}</Text>
@@ -43,21 +45,21 @@ const Sidebar: React.FC = () => {
   return (
     <Box
       bg="white"
-      w="full"
       h="full"
       borderRight="1px"
       borderRightColor="gray.200"
-      pos="fixed"
+      w="100%"
       pt="4"
+      overflowY="auto"
     >
       {user && profile && (
         <Flex px="6" py="4" align="center">
           <Avatar size="sm" src={profile.avatar_url} name={profile.full_name} />
-          <Box ml="3">
-            <Text fontWeight="bold" isTruncated maxW="160px">
+          <Box ml="3" maxW="160px">
+            <Text fontWeight="bold" isTruncated>
               {profile.full_name}
             </Text>
-            <Text fontSize="sm" color="gray.500" isTruncated maxW="160px">
+            <Text fontSize="sm" color="gray.500" isTruncated>
               @{profile.username}
             </Text>
           </Box>

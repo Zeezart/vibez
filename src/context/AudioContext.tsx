@@ -25,14 +25,20 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
   useEffect(() => {
     // Initialize the WebRTC service when the component mounts
     if (user?.id && spaceId) {
+      console.log("AudioProvider: Initializing WebRTC service");
       webRTCService.initialize(spaceId, user.id);
       
       // Set up callbacks for peer connections
       webRTCService.setCallbacks(
         (peerId, stream) => {
-          console.log(`Peer ${peerId} connected with stream`);
+          console.log(`AudioProvider: Peer ${peerId} connected with stream`);
           // Add peer to active speakers
-          setActiveSpeakers(prev => [...prev, peerId]);
+          setActiveSpeakers(prev => {
+            if (!prev.includes(peerId)) {
+              return [...prev, peerId];
+            }
+            return prev;
+          });
           
           // Create an audio element to play the peer's audio
           const audioElement = new Audio();
@@ -40,9 +46,13 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
           audioElement.id = `audio-${peerId}`;
           audioElement.autoplay = true;
           document.body.appendChild(audioElement);
+          
+          // Log to verify the audio is playing
+          audioElement.onplay = () => console.log(`Audio from peer ${peerId} is playing`);
+          audioElement.onerror = (e) => console.error(`Audio error for peer ${peerId}:`, e);
         },
         (peerId) => {
-          console.log(`Peer ${peerId} disconnected`);
+          console.log(`AudioProvider: Peer ${peerId} disconnected`);
           // Remove peer from active speakers
           setActiveSpeakers(prev => prev.filter(id => id !== peerId));
           
@@ -56,7 +66,7 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
     }
     
     return () => {
-      // Clean up when the component unmounts
+      console.log("AudioProvider: Cleaning up");
       webRTCService.cleanup();
       
       // Remove any remaining audio elements
@@ -79,8 +89,14 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
     }
     
     try {
+      console.log(`AudioProvider: Enabling speaking mode: ${enable}`);
       const result = await webRTCService.enableSpeaking(enable);
       setIsSpeaking(enable && result);
+      
+      if (enable && result) {
+        setIsMuted(false); // Automatically unmute when enabling speaking
+      }
+      
       return result;
     } catch (error) {
       console.error('Error enabling speaking:', error);

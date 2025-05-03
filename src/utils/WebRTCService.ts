@@ -15,6 +15,7 @@ class WebRTCService {
   private onPeerDisconnectedCallback: ((peerId: string) => void) | null = null;
   private spaceId: string | null = null;
   private speakingEnabled = false;
+  private realtimeChannel: any = null;
   
   constructor() {
     this.setupRealtimeListeners();
@@ -22,12 +23,14 @@ class WebRTCService {
 
   private setupRealtimeListeners() {
     // We'll listen for signaling messages to establish WebRTC connections
-    supabase
+    this.realtimeChannel = supabase
       .channel('rtc-signaling')
       .on('broadcast', { event: 'rtc-signal' }, (payload) => {
-        this.handleSignalingMessage(payload);
+        this.handleSignalingMessage(payload.payload);
       })
       .subscribe();
+      
+    console.log("WebRTC service initialized and listening for signaling messages");
   }
 
   // Set callbacks for UI to handle peer connections
@@ -37,23 +40,44 @@ class WebRTCService {
   ) {
     this.onPeerConnectedCallback = onPeerConnected;
     this.onPeerDisconnectedCallback = onPeerDisconnected;
+    console.log("WebRTC callbacks set");
   }
 
   // Initialize the service for a specific space
   public async initialize(spaceId: string, userId: string) {
+    console.log(`Initializing WebRTC service for space: ${spaceId}, user: ${userId}`);
     this.spaceId = spaceId;
     this.localUserId = userId;
     
     // Join the space-specific channel
-    await supabase.channel(`space-${spaceId}`)
+    const spaceChannel = supabase.channel(`space-${spaceId}`)
+      .on('broadcast', { event: 'speaker-joined' }, (payload) => {
+        console.log('Speaker joined:', payload);
+        if (this.speakingEnabled && payload.payload.userId !== this.localUserId) {
+          this.connectToPeer(payload.payload.userId);
+        }
+      })
+      .on('broadcast', { event: 'speaker-left' }, (payload) => {
+        console.log('Speaker left:', payload);
+        if (payload.payload.userId !== this.localUserId) {
+          this.disconnectFromPeer(payload.payload.userId);
+        }
+      })
+      .on('broadcast', { event: 'rtc-signal' }, (payload) => {
+        console.log('RTC signal received:', payload);
+        this.handleSignalingMessage(payload.payload);
+      })
       .subscribe();
+      
+    console.log(`Subscribed to space-${spaceId} channel`);
 
     return this;
   }
 
   // Enable/disable speaking mode
   public async enableSpeaking(enable: boolean) {
-    if (enable === this.speakingEnabled) return;
+    console.log(`Enabling speaking mode: ${enable}`);
+    if (enable === this.speakingEnabled) return this.speakingEnabled;
     
     this.speakingEnabled = enable;
     
@@ -68,6 +92,8 @@ class WebRTCService {
           },
           video: false
         });
+        
+        console.log("Microphone access granted:", this.localStream);
         
         // Announce that this user is now a speaker
         await this.broadcastSpeakerUpdate(true);
@@ -97,6 +123,7 @@ class WebRTCService {
 
   // Mute/unmute the local audio stream
   public setMuted(muted: boolean) {
+    console.log(`Setting mute: ${muted}`);
     if (!this.localStream) return;
     
     this.localStream.getAudioTracks().forEach(track => {
@@ -106,6 +133,8 @@ class WebRTCService {
 
   private async broadcastSpeakerUpdate(isSpeaking: boolean) {
     if (!this.spaceId || !this.localUserId) return;
+    
+    console.log(`Broadcasting speaker update: ${isSpeaking ? 'joined' : 'left'}`);
     
     await supabase
       .channel(`space-${this.spaceId}`)
@@ -119,15 +148,22 @@ class WebRTCService {
   private async connectToPeer(peerId: string) {
     if (this.peers.has(peerId) || !this.localStream || !this.localUserId) return;
     
+    console.log(`Connecting to peer: ${peerId}`);
+    
     try {
       // Create a new RTCPeerConnection
       const peerConnection = new RTCPeerConnection({
-        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ]
       });
       
       // Add local stream tracks to the connection
       this.localStream.getTracks().forEach(track => {
         if (this.localStream) {
+          console.log(`Adding track to peer connection: ${track.kind}`);
           peerConnection.addTrack(track, this.localStream);
         }
       });
@@ -141,6 +177,7 @@ class WebRTCService {
       // Set up event handlers for this peer connection
       peerConnection.onicecandidate = event => {
         if (event.candidate) {
+          console.log(`Sending ICE candidate to ${peerId}`);
           this.sendSignalingMessage(peerId, {
             type: 'ice-candidate',
             candidate: event.candidate
@@ -149,10 +186,15 @@ class WebRTCService {
       };
       
       peerConnection.ontrack = event => {
+        console.log(`Received track from ${peerId}:`, event.streams[0]);
         peer.stream = event.streams[0];
         if (this.onPeerConnectedCallback) {
           this.onPeerConnectedCallback(peerId, event.streams[0]);
         }
+      };
+      
+      peerConnection.oniceconnectionstatechange = () => {
+        console.log(`ICE connection state change: ${peerConnection.iceConnectionState}`);
       };
       
       // Store the peer
@@ -162,6 +204,7 @@ class WebRTCService {
       const offer = await peerConnection.createOffer();
       await peerConnection.setLocalDescription(offer);
       
+      console.log(`Sending offer to ${peerId}`);
       this.sendSignalingMessage(peerId, {
         type: 'offer',
         offer: peerConnection.localDescription
@@ -172,11 +215,22 @@ class WebRTCService {
   }
 
   private async handleSignalingMessage(payload: any) {
-    if (!this.localUserId || payload.userId === this.localUserId) return;
+    if (!this.localUserId) return;
     
-    const { userId: peerId, message } = payload;
+    const { userId: peerId, targetId, message } = payload;
     
-    if (!peerId || !message || !message.type) return;
+    // Check if message is for this user
+    if (targetId && targetId !== this.localUserId) return;
+    
+    // Ignore own messages
+    if (peerId === this.localUserId) return;
+    
+    if (!peerId || !message || !message.type) {
+      console.log('Invalid signaling message:', payload);
+      return;
+    }
+    
+    console.log(`Received signaling message of type ${message.type} from ${peerId}`);
     
     switch (message.type) {
       case 'offer':
@@ -188,30 +242,32 @@ class WebRTCService {
       case 'ice-candidate':
         this.handleIceCandidate(peerId, message.candidate);
         break;
-      case 'speaker-joined':
-        if (this.speakingEnabled) {
-          await this.connectToPeer(peerId);
-        }
-        break;
-      case 'speaker-left':
-        this.disconnectFromPeer(peerId);
-        break;
     }
   }
 
   private async handleOffer(peerId: string, offer: RTCSessionDescriptionInit) {
-    if (!this.localStream || !this.localUserId) return;
+    if (!this.speakingEnabled || !this.localStream || !this.localUserId) {
+      console.log(`Received offer but speaking is not enabled or no local stream`);
+      return;
+    }
+    
+    console.log(`Handling offer from ${peerId}`);
     
     try {
       // Create a new RTCPeerConnection if needed
       if (!this.peers.has(peerId)) {
         const peerConnection = new RTCPeerConnection({
-          iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun2.l.google.com:19302' }
+          ]
         });
         
         // Add local stream tracks to the connection
         this.localStream.getTracks().forEach(track => {
           if (this.localStream) {
+            console.log(`Adding track to peer connection: ${track.kind}`);
             peerConnection.addTrack(track, this.localStream);
           }
         });
@@ -225,6 +281,7 @@ class WebRTCService {
         // Set up event handlers for this peer connection
         peerConnection.onicecandidate = event => {
           if (event.candidate) {
+            console.log(`Sending ICE candidate to ${peerId}`);
             this.sendSignalingMessage(peerId, {
               type: 'ice-candidate',
               candidate: event.candidate
@@ -233,10 +290,15 @@ class WebRTCService {
         };
         
         peerConnection.ontrack = event => {
+          console.log(`Received track from ${peerId}:`, event.streams[0]);
           peer.stream = event.streams[0];
           if (this.onPeerConnectedCallback) {
             this.onPeerConnectedCallback(peerId, event.streams[0]);
           }
+        };
+        
+        peerConnection.oniceconnectionstatechange = () => {
+          console.log(`ICE connection state change: ${peerConnection.iceConnectionState}`);
         };
         
         // Store the peer
@@ -253,6 +315,7 @@ class WebRTCService {
       const answer = await peerConnection.createAnswer();
       await peerConnection.setLocalDescription(answer);
       
+      console.log(`Sending answer to ${peerId}`);
       // Send the answer back
       this.sendSignalingMessage(peerId, {
         type: 'answer',
@@ -265,7 +328,12 @@ class WebRTCService {
 
   private async handleAnswer(peerId: string, answer: RTCSessionDescriptionInit) {
     const peer = this.peers.get(peerId);
-    if (!peer || !peer.connection) return;
+    if (!peer || !peer.connection) {
+      console.log(`No peer connection for ${peerId}`);
+      return;
+    }
+    
+    console.log(`Handling answer from ${peerId}`);
     
     try {
       await peer.connection.setRemoteDescription(new RTCSessionDescription(answer));
@@ -276,7 +344,12 @@ class WebRTCService {
 
   private handleIceCandidate(peerId: string, candidate: RTCIceCandidateInit) {
     const peer = this.peers.get(peerId);
-    if (!peer || !peer.connection) return;
+    if (!peer || !peer.connection) {
+      console.log(`No peer connection for ${peerId}`);
+      return;
+    }
+    
+    console.log(`Handling ICE candidate from ${peerId}`);
     
     try {
       peer.connection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -287,6 +360,8 @@ class WebRTCService {
 
   private async sendSignalingMessage(peerId: string, message: any) {
     if (!this.spaceId || !this.localUserId) return;
+    
+    console.log(`Sending signaling message to ${peerId}:`, message);
     
     await supabase
       .channel(`space-${this.spaceId}`)
@@ -305,6 +380,8 @@ class WebRTCService {
     const peer = this.peers.get(peerId);
     if (!peer) return;
     
+    console.log(`Disconnecting from peer: ${peerId}`);
+    
     // Close the peer connection
     if (peer.connection) {
       peer.connection.close();
@@ -320,12 +397,14 @@ class WebRTCService {
   }
 
   private disconnectFromAllPeers() {
+    console.log(`Disconnecting from all peers`);
     for (const peerId of this.peers.keys()) {
       this.disconnectFromPeer(peerId);
     }
   }
 
   public cleanup() {
+    console.log(`Cleaning up WebRTC service`);
     // Stop local stream
     if (this.localStream) {
       this.localStream.getTracks().forEach(track => track.stop());
@@ -336,6 +415,10 @@ class WebRTCService {
     this.disconnectFromAllPeers();
     
     // Unsubscribe from channels
+    if (this.realtimeChannel) {
+      supabase.removeChannel(this.realtimeChannel);
+    }
+    
     if (this.spaceId) {
       supabase.removeChannel(supabase.channel(`space-${this.spaceId}`));
     }

@@ -46,7 +46,7 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
         </Badge>
       </Text>
       
-      <VStack spacing={4} align="stretch">
+      <VStack spacing={4} align="stretch" maxHeight="400px" overflowY="auto">
         {filteredUsers.map(user => {
           const isActive = activeSpeakers.includes(user.id);
           
@@ -66,14 +66,14 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
                       position="absolute" 
                       bottom="-2px" 
                       right="-2px" 
-                      bg={user.isMuted || !isActive ? "red.500" : "green.500"} 
+                      bg={user.isMuted ? "red.500" : (isActive ? "green.500" : "gray.400")} 
                       p={1} 
                       borderRadius="full"
                       boxSize={6}
                       align="center"
                       justify="center"
                     >
-                      {user.isMuted || !isActive ? <MicOff size={12} color="white" /> : <Mic size={12} color="white" />}
+                      {user.isMuted ? <MicOff size={12} color="white" /> : <Mic size={12} color="white" />}
                     </Flex>
                   )}
                 </Box>
@@ -98,6 +98,12 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
             </HStack>
           );
         })}
+        
+        {filteredUsers.length === 0 && (
+          <Box p={4} textAlign="center" color="gray.500">
+            No {type === 'speakers' ? 'speakers' : 'listeners'} yet
+          </Box>
+        )}
       </VStack>
     </Box>
   );
