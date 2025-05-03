@@ -26,12 +26,20 @@ import {
   Spinner,
   useToast,
   Image,
+  Grid,
+  GridItem,
+  Tabs,
+  TabList,
+  Tab,
+  TabPanels,
+  TabPanel,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { EditIcon } from '@chakra-ui/icons';
+import ProfileDetails from '../components/ProfileDetails';
 
 const ProfilePage = () => {
   const { user, profile, refreshProfile } = useAuth();
@@ -44,6 +52,9 @@ const ProfilePage = () => {
     fullName: '',
     username: '',
   });
+  const [hostedSpaces, setHostedSpaces] = useState<any[]>([]);
+  const [loadingSpaces, setLoadingSpaces] = useState(false);
+  
   const navigate = useNavigate();
   const toast = useToast();
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -59,7 +70,40 @@ const ProfilePage = () => {
         setAvatarUrl(profile.avatar_url);
       }
     }
-  }, [profile]);
+    
+    if (user) {
+      fetchUserSpaces();
+    }
+  }, [profile, user]);
+  
+  const fetchUserSpaces = async () => {
+    if (!user) return;
+    
+    setLoadingSpaces(true);
+    try {
+      // Fetch spaces hosted by the user
+      const { data: spaces, error } = await supabase
+        .from('spaces')
+        .select(`
+          id,
+          title,
+          description,
+          status,
+          scheduled_for,
+          created_at,
+          host_id
+        `)
+        .eq('host_id', user.id)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      setHostedSpaces(spaces || []);
+    } catch (error) {
+      console.error('Error fetching user spaces:', error);
+    } finally {
+      setLoadingSpaces(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -200,105 +244,170 @@ const ProfilePage = () => {
 
   return (
     <Layout>
-      <Box 
-        minH="calc(100vh - 64px)"
-        bg="gray.50"
-        py={8}
-      >
-        <Container maxW="xl">
-          <Card
-            bg="white"
-            shadow="xl"
-            borderRadius="xl"
-            overflow="hidden"
-          >
-            <CardBody p={8}>
-              <VStack spacing={6} align="stretch">
-                <Flex direction="column" align="center" mb={6}>
-                  <Box position="relative" mb={4}>
-                    <Avatar
-                      size="2xl"
-                      name={formData.fullName || user.email}
-                      src={avatarUrl || undefined}
-                      mb={2}
-                    />
-                    <IconButton
-                      aria-label="Change avatar"
-                      icon={<EditIcon />}
-                      size="sm"
-                      colorScheme="purple"
-                      rounded="full"
-                      position="absolute"
-                      bottom={0}
-                      right={0}
-                      onClick={onOpen}
-                    />
-                  </Box>
-                  <Heading
-                    size="lg"
-                    bgGradient="linear(to-r, purple.600, indigo.600)"
-                    backgroundClip="text"
-                  >
-                    Edit Profile
-                  </Heading>
-                  <Text color="gray.600" mt={2}>
-                    Update your personal information
-                  </Text>
-                </Flex>
+      <Container maxW="6xl" py={6}>
+        <Grid templateColumns={{ base: '1fr', md: '300px 1fr' }} gap={6}>
+          {/* Profile Details Sidebar */}
+          <GridItem>
+            <ProfileDetails userId={user.id} isOwnProfile={true} />
+          </GridItem>
+          
+          {/* Main Content Area */}
+          <GridItem>
+            <Card bg="white" shadow="md" borderRadius="lg" overflow="hidden">
+              <CardBody p={0}>
+                <Tabs>
+                  <TabList px={6} pt={4}>
+                    <Tab fontWeight="medium">Edit Profile</Tab>
+                    <Tab fontWeight="medium">My Spaces</Tab>
+                  </TabList>
+                  
+                  <TabPanels>
+                    {/* Edit Profile Tab */}
+                    <TabPanel p={6}>
+                      <VStack spacing={6} align="stretch">
+                        <Flex direction="column" align="center" mb={6}>
+                          <Box position="relative" mb={4}>
+                            <Avatar
+                              size="2xl"
+                              name={formData.fullName || user.email}
+                              src={avatarUrl || undefined}
+                              mb={2}
+                            />
+                            <IconButton
+                              aria-label="Change avatar"
+                              icon={<EditIcon />}
+                              size="sm"
+                              colorScheme="purple"
+                              rounded="full"
+                              position="absolute"
+                              bottom={0}
+                              right={0}
+                              onClick={onOpen}
+                            />
+                          </Box>
+                          <Text color="gray.600" fontSize="sm">
+                            Click the edit icon to change your profile picture
+                          </Text>
+                        </Flex>
 
-                <form onSubmit={handleSubmit}>
-                  <VStack spacing={6}>
-                    <FormControl>
-                      <FormLabel>Full Name</FormLabel>
-                      <Input
-                        value={formData.fullName}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          fullName: e.target.value
-                        }))}
-                        placeholder="Enter your full name"
-                        size="lg"
-                        focusBorderColor="purple.400"
-                      />
-                    </FormControl>
+                        <form onSubmit={handleSubmit}>
+                          <VStack spacing={6}>
+                            <FormControl>
+                              <FormLabel>Full Name</FormLabel>
+                              <Input
+                                value={formData.fullName}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  fullName: e.target.value
+                                }))}
+                                placeholder="Enter your full name"
+                                size="lg"
+                                focusBorderColor="purple.400"
+                              />
+                            </FormControl>
 
-                    <FormControl>
-                      <FormLabel>Username</FormLabel>
-                      <Input
-                        value={formData.username}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          username: e.target.value
-                        }))}
-                        placeholder="Choose a username"
-                        size="lg"
-                        focusBorderColor="purple.400"
-                      />
-                    </FormControl>
+                            <FormControl>
+                              <FormLabel>Username</FormLabel>
+                              <Input
+                                value={formData.username}
+                                onChange={(e) => setFormData(prev => ({
+                                  ...prev,
+                                  username: e.target.value
+                                }))}
+                                placeholder="Choose a username"
+                                size="lg"
+                                focusBorderColor="purple.400"
+                              />
+                            </FormControl>
 
-                    <Button
-                      type="submit"
-                      isLoading={isLoading}
-                      loadingText="Updating..."
-                      bgGradient="linear(to-r, purple.600, indigo.600)"
-                      color="white"
-                      _hover={{
-                        bgGradient: "linear(to-r, purple.700, indigo.700)"
-                      }}
-                      size="lg"
-                      width="full"
-                      fontSize="md"
-                      height="50px"
-                    >
-                      Save Changes
-                    </Button>
-                  </VStack>
-                </form>
-              </VStack>
-            </CardBody>
-          </Card>
-        </Container>
-      </Box>
+                            <Button
+                              type="submit"
+                              isLoading={isLoading}
+                              loadingText="Updating..."
+                              colorScheme="purple"
+                              size="lg"
+                              width="full"
+                              fontSize="md"
+                              height="50px"
+                            >
+                              Save Changes
+                            </Button>
+                          </VStack>
+                        </form>
+                      </VStack>
+                    </TabPanel>
+                    
+                    {/* My Spaces Tab */}
+                    <TabPanel p={6}>
+                      <VStack spacing={4} align="stretch">
+                        <Heading size="md" mb={2}>My Hosted Spaces</Heading>
+                        
+                        {loadingSpaces ? (
+                          <Flex justify="center" p={8}>
+                            <Spinner size="lg" color="purple.500" />
+                          </Flex>
+                        ) : hostedSpaces.length > 0 ? (
+                          hostedSpaces.map(space => (
+                            <Box 
+                              key={space.id} 
+                              p={4} 
+                              borderWidth="1px" 
+                              borderRadius="md"
+                              _hover={{ borderColor: 'purple.300', shadow: 'sm' }}
+                              transition="all 0.2s"
+                              cursor="pointer"
+                              onClick={() => navigate(`/space/${space.id}`)}
+                            >
+                              <Flex justify="space-between" align="center">
+                                <Box>
+                                  <Heading size="sm">{space.title}</Heading>
+                                  <Text color="gray.600" mt={1} noOfLines={2}>
+                                    {space.description || 'No description'}
+                                  </Text>
+                                </Box>
+                                <Box>
+                                  <Text fontSize="sm" color="gray.500">
+                                    {new Date(space.created_at).toLocaleDateString()}
+                                  </Text>
+                                  <Text 
+                                    fontSize="xs" 
+                                    mt={1}
+                                    px={2}
+                                    py={1}
+                                    borderRadius="full"
+                                    bg={space.status === 'live' ? 'green.100' : space.status === 'scheduled' ? 'blue.100' : 'gray.100'}
+                                    color={space.status === 'live' ? 'green.700' : space.status === 'scheduled' ? 'blue.700' : 'gray.700'}
+                                    textAlign="center"
+                                  >
+                                    {space.status.toUpperCase()}
+                                  </Text>
+                                </Box>
+                              </Flex>
+                            </Box>
+                          ))
+                        ) : (
+                          <Box p={8} textAlign="center" bg="gray.50" borderRadius="md">
+                            <Text color="gray.500">You haven't hosted any spaces yet.</Text>
+                            <Button 
+                              mt={4} 
+                              colorScheme="purple" 
+                              as={Link} 
+                              to="/create-space"
+                              size="sm"
+                            >
+                              Create Your First Space
+                            </Button>
+                          </Box>
+                        )}
+                      </VStack>
+                    </TabPanel>
+                  </TabPanels>
+                </Tabs>
+              </CardBody>
+            </Card>
+          </GridItem>
+        </Grid>
+      </Container>
 
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />
