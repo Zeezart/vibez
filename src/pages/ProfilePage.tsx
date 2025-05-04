@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -285,29 +286,31 @@ const ProfilePage = () => {
             
             <Flex direction="column" align="center" mt={-16} mb={6}>
               <Box position="relative">
-                <Avatar 
-                  size="2xl" 
-                  name={formData.fullName || user.email} 
-                  src={avatarUrl || undefined}
-                  bg="blue.500"
-                  mb={2}
-                  borderWidth={4}
-                  borderColor="white"
-                />
-                <IconButton
-                  aria-label="Change avatar"
-                  icon={<EditIcon />}
-                  size="sm"
-                  colorScheme="purple"
-                  rounded="full"
-                  position="absolute"
-                  bottom={2}
-                  right={0}
-                  onClick={onAvatarOpen}
-                />
+                <div className="relative h-24 w-24">
+                  <Avatar className="h-24 w-24 bg-blue-500 border-4 border-white">
+                    {avatarUrl ? (
+                      <AvatarImage src={avatarUrl} alt={formData.fullName || user.email} />
+                    ) : (
+                      <AvatarFallback>
+                        {(formData.fullName || user.email)?.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <IconButton
+                    aria-label="Change avatar"
+                    icon={<EditIcon />}
+                    size="sm"
+                    colorScheme="purple"
+                    rounded="full"
+                    position="absolute"
+                    bottom={0}
+                    right={0}
+                    onClick={onAvatarOpen}
+                  />
+                </div>
               </Box>
               
-              <VStack spacing={1}>
+              <VStack spacing={1} mt={4}>
                 <Heading size="lg">{formData.fullName || 'Your Name'}</Heading>
                 <Text color="gray.500">@{formData.username || 'username'}</Text>
                 

@@ -42,7 +42,7 @@ import { Mic, Share2, MoreVertical, MicOff } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import UsersList from '../components/UsersList';
-import RealTimeChat from '../components/RealTimeChat';
+import ChatDrawer from '../components/ChatDrawer';
 import { SpaceProps } from '../components/SpaceCard';
 import { supabase } from '../integrations/supabase/client';
 import { useAuth } from '../context/AuthContext';
@@ -631,134 +631,128 @@ const SpaceDetailPage: React.FC = () => {
     <Layout>
       <AudioProvider spaceId={id as string}>
         <Container maxW="7xl" py={5}>
+          <Box mb={6}>
+            <Flex justify="space-between" align="center" mb={3}>
+              <Badge colorScheme={space.status === 'live' ? 'green' : space.status === 'scheduled' ? 'blue' : 'gray'} px={2} py={1} borderRadius="full">
+                {space.status === 'live' ? 'LIVE NOW' : space.status === 'scheduled' ? 'SCHEDULED' : 'ENDED'}
+              </Badge>
+              <Flex>
+                <IconButton
+                  aria-label="Favorite"
+                  icon={<StarIcon />}
+                  variant="ghost"
+                  color={space.isFavorite ? 'yellow.500' : 'gray.400'}
+                  mr={2}
+                  onClick={toggleFavorite}
+                  isDisabled={!user}
+                />
+                <IconButton
+                  aria-label="Share"
+                  icon={<Share2 size={20} />}
+                  variant="ghost"
+                  mr={2}
+                  onClick={shareSpace}
+                />
+                <IconButton
+                  aria-label="Info"
+                  icon={<InfoIcon />}
+                  variant="ghost"
+                  onClick={onOpen}
+                />
+                
+                {user && space.host.id === user.id && (
+                  <Menu>
+                    <MenuButton
+                      as={IconButton}
+                      aria-label="More options"
+                      icon={<MoreVertical size={16} />}
+                      variant="ghost"
+                      ml={2}
+                    />
+                    <MenuList>
+                      <MenuItem icon={<CopyIcon />} onClick={copyShareLink}>
+                        Copy invite link
+                      </MenuItem>
+                      {space.status === 'live' && (
+                        <MenuItem
+                          color="red.500"
+                          onClick={endSpace}
+                        >
+                          End space
+                        </MenuItem>
+                      )}
+                    </MenuList>
+                  </Menu>
+                )}
+              </Flex>
+            </Flex>
+            
+            <Heading mb={4}>{space.title}</Heading>
+            
+            <Flex align="center" mb={4}>
+              <Avatar size="sm" src={space.host.image} name={space.host.name} mr={2} />
+              <Box flex="1">
+                <Text>Hosted by <Text as="span" fontWeight="bold">{space.host.name}</Text></Text>
+                <Text fontSize="xs" color="gray.500">{followersCount} followers</Text>
+              </Box>
+              {user && user.id !== space.host.id && (
+                <Button
+                  size="sm"
+                  colorScheme={isFollowing ? "gray" : "purple"}
+                  variant={isFollowing ? "outline" : "solid"}
+                  onClick={toggleFollow}
+                >
+                  {isFollowing ? 'Following' : 'Follow'}
+                </Button>
+              )}
+            </Flex>
+            
+            {space.tags && space.tags.length > 0 && (
+              <Flex gap={2} flexWrap="wrap" mb={5}>
+                {space.tags.map((tag) => (
+                  <Tag key={tag} colorScheme="purple" size="md">
+                    {tag}
+                  </Tag>
+                ))}
+              </Flex>
+            )}
+            
+            {space.status === 'scheduled' && space.scheduledFor && (
+              <Flex align="center" mb={5} color="blue.600">
+                <CalendarIcon mr={2} />
+                <Text>{new Date(space.scheduledFor).toLocaleString()}</Text>
+              </Flex>
+            )}
+            
+            <Box bg="gray.50" p={5} borderRadius="md" mb={6}>
+              <Text>{space.description}</Text>
+            </Box>
+            
+            {joinLink && (
+              <Box bg="blue.50" p={5} borderRadius="md" mb={6}>
+                <Heading size="sm" mb={2}>Share this space</Heading>
+                <Flex align="center">
+                  <Input value={joinLink} isReadOnly bg="white" />
+                  <Button ml={2} colorScheme="blue" onClick={copyShareLink}>
+                    Copy
+                  </Button>
+                </Flex>
+              </Box>
+            )}
+          </Box>
+          
           <Grid templateColumns={{ base: '1fr', lg: '3fr 1fr' }} gap={8}>
             <GridItem>
-              <Box mb={6}>
-                <Flex justify="space-between" align="center" mb={3}>
-                  <Badge colorScheme={space.status === 'live' ? 'green' : space.status === 'scheduled' ? 'blue' : 'gray'} px={2} py={1} borderRadius="full">
-                    {space.status === 'live' ? 'LIVE NOW' : space.status === 'scheduled' ? 'SCHEDULED' : 'ENDED'}
-                  </Badge>
-                  <Flex>
-                    <IconButton
-                      aria-label="Favorite"
-                      icon={<StarIcon />}
-                      variant="ghost"
-                      color={space.isFavorite ? 'yellow.500' : 'gray.400'}
-                      mr={2}
-                      onClick={toggleFavorite}
-                      isDisabled={!user}
-                    />
-                    <IconButton
-                      aria-label="Share"
-                      icon={<Share2 size={20} />}
-                      variant="ghost"
-                      mr={2}
-                      onClick={shareSpace}
-                    />
-                    <IconButton
-                      aria-label="Info"
-                      icon={<InfoIcon />}
-                      variant="ghost"
-                      onClick={onOpen}
-                    />
-                    
-                    {user && space.host.id === user.id && (
-                      <Menu>
-                        <MenuButton
-                          as={IconButton}
-                          aria-label="More options"
-                          icon={<MoreVertical size={16} />}
-                          variant="ghost"
-                          ml={2}
-                        />
-                        <MenuList>
-                          <MenuItem icon={<CopyIcon />} onClick={copyShareLink}>
-                            Copy invite link
-                          </MenuItem>
-                          {space.status === 'live' && (
-                            <MenuItem
-                              color="red.500"
-                              onClick={endSpace}
-                            >
-                              End space
-                            </MenuItem>
-                          )}
-                        </MenuList>
-                      </Menu>
-                    )}
-                  </Flex>
-                </Flex>
-                
-                <Heading mb={4}>{space.title}</Heading>
-                
-                <Flex align="center" mb={4}>
-                  <Avatar size="sm" src={space.host.image} name={space.host.name} mr={2} />
-                  <Box flex="1">
-                    <Text>Hosted by <Text as="span" fontWeight="bold">{space.host.name}</Text></Text>
-                    <Text fontSize="xs" color="gray.500">{followersCount} followers</Text>
-                  </Box>
-                  {user && user.id !== space.host.id && (
-                    <Button
-                      size="sm"
-                      colorScheme={isFollowing ? "gray" : "purple"}
-                      variant={isFollowing ? "outline" : "solid"}
-                      onClick={toggleFollow}
-                    >
-                      {isFollowing ? 'Following' : 'Follow'}
-                    </Button>
-                  )}
-                </Flex>
-                
-                {space.tags && space.tags.length > 0 && (
-                  <Flex gap={2} flexWrap="wrap" mb={5}>
-                    {space.tags.map((tag) => (
-                      <Tag key={tag} colorScheme="purple" size="md">
-                        {tag}
-                      </Tag>
-                    ))}
-                  </Flex>
-                )}
-                
-                {space.status === 'scheduled' && space.scheduledFor && (
-                  <Flex align="center" mb={5} color="blue.600">
-                    <CalendarIcon mr={2} />
-                    <Text>{new Date(space.scheduledFor).toLocaleString()}</Text>
-                  </Flex>
-                )}
-                
-                <Box bg="gray.50" p={5} borderRadius="md" mb={6}>
-                  <Text>{space.description}</Text>
-                </Box>
-                
-                {joinLink && (
-                  <Box bg="blue.50" p={5} borderRadius="md" mb={6}>
-                    <Heading size="sm" mb={2}>Share this space</Heading>
-                    <Flex align="center">
-                      <Input value={joinLink} isReadOnly bg="white" />
-                      <Button ml={2} colorScheme="blue" onClick={copyShareLink}>
-                        Copy
-                      </Button>
-                    </Flex>
-                  </Box>
-                )}
-              </Box>
-              
               <Box>
-                <Flex>
-                  <Box flex="1">
-                    <Heading size="md" mb={4}>Speakers</Heading>
-                    <UsersList users={users.filter(u => u.role === 'host' || u.role === 'speaker')} type="speakers" />
-                  </Box>
-                  <Box flex="1">
-                    <RealTimeChat spaceId={id as string} />
-                  </Box>
-                </Flex>
+                <Heading size="md" mb={4}>Speakers</Heading>
+                <UsersList users={users.filter(u => u.role === 'host' || u.role === 'speaker')} type="speakers" />
               </Box>
             </GridItem>
             
             <GridItem>
               <Box position="sticky" top="100px">
                 <Box bg="white" p={5} borderRadius="md" boxShadow="md" mb={6}>
+                  <Heading size="sm" mb={4}>Listeners</Heading>
                   <UsersList users={users.filter(u => u.role === 'listener')} type="listeners" />
                 </Box>
 
@@ -802,6 +796,9 @@ const SpaceDetailPage: React.FC = () => {
             </GridItem>
           </Grid>
         </Container>
+
+        {/* Chat drawer that can be toggled */}
+        <ChatDrawer spaceId={id as string} />
 
         <Modal isOpen={isOpen} onClose={onClose}>
           <ModalOverlay />
