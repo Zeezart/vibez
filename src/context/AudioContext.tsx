@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { webRTCService } from '../utils/WebRTCService';
 import { useAuth } from './AuthContext';
 import { useToast } from '@chakra-ui/react';
@@ -22,80 +22,55 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
   const [activeSpeakers, setActiveSpeakers] = useState<string[]>([]);
   const { user } = useAuth();
   const toast = useToast();
+  const userInitiatedAudio = useRef(false);
   
-  // Detect audio activity to update active speakers
-  const handleAudioActivity = useCallback((peerId: string, stream: MediaStream) => {
-    if (!stream) return;
+  // Handle user-initiated audio playback
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      userInitiatedAudio.current = true;
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+    };
     
-    try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      const analyser = audioContext.createAnalyser();
-      const source = audioContext.createMediaStreamSource(stream);
-      source.connect(analyser);
-      
-      analyser.fftSize = 256;
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      
-      let silenceCounter = 0;
-      
-      const detectSound = () => {
-        if (!stream.active) {
-          console.log(`Stream for ${peerId} is no longer active`);
-          return;
-        }
+    document.addEventListener('click', handleUserInteraction);
+    document.addEventListener('touchstart', handleUserInteraction);
+    
+    return () => {
+      document.removeEventListener('click', handleUserInteraction);
+      document.removeEventListener('touchstart', handleUserInteraction);
+    };
+  }, []);
+  
+  // Monitor speaking status via realtime
+  useEffect(() => {
+    if (!spaceId) return;
+    
+    const channel = supabase
+      .channel(`space-${spaceId}-speaking-status`)
+      .on('broadcast', { event: 'user-speaking' }, (payload) => {
+        const { userId, isSpeaking: isUserSpeaking } = payload.payload;
         
-        analyser.getByteFrequencyData(dataArray);
-        
-        // Calculate volume level
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-        
-        // Threshold for speaking detection
-        const threshold = 15;
-        
-        if (average > threshold) {
-          silenceCounter = 0;
-          
-          // Add to active speakers if not already there
+        if (isUserSpeaking) {
+          console.log(`User ${userId} is speaking`);
           setActiveSpeakers(prev => {
-            if (!prev.includes(peerId)) {
-              return [...prev, peerId];
+            if (!prev.includes(userId)) {
+              return [...prev, userId];
             }
             return prev;
           });
         } else {
-          silenceCounter++;
-          
-          // If silent for more than 1.5 seconds, remove from active speakers
-          if (silenceCounter > 60) {
-            silenceCounter = 0;
-            setActiveSpeakers(prev => prev.filter(id => id !== peerId));
-          }
+          console.log(`User ${userId} stopped speaking`);
+          setActiveSpeakers(prev => prev.filter(id => id !== userId));
         }
-        
-        requestAnimationFrame(detectSound);
-      };
-      
-      detectSound();
-      
-      return () => {
-        try {
-          source.disconnect();
-          audioContext.close();
-        } catch (err) {
-          console.error("Error cleaning up audio context:", err);
-        }
-      };
-    } catch (error) {
-      console.error("Error setting up audio activity detection:", error);
-      return () => {};
-    }
-  }, []);
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [spaceId]);
   
+  // Initialize the WebRTC service when the component mounts
   useEffect(() => {
     // Initialize the WebRTC service when the component mounts
     if (user?.id && spaceId) {
@@ -115,9 +90,6 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
             return prev;
           });
           
-          // Set up audio activity detection for this stream
-          handleAudioActivity(peerId, stream);
-          
           // Create an audio element to play the peer's audio
           const audioElement = document.getElementById(`audio-${peerId}`) as HTMLAudioElement || new Audio();
           audioElement.srcObject = stream;
@@ -130,9 +102,40 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
             document.body.appendChild(audioElement);
           }
           
-          // Log to verify the audio is playing
-          audioElement.onplay = () => console.log(`Audio from peer ${peerId} is playing`);
-          audioElement.onerror = (e) => console.error(`Audio error for peer ${peerId}:`, e);
+          // Try to play audio
+          const playAudio = async () => {
+            try {
+              await audioElement.play();
+              console.log(`Audio from peer ${peerId} is playing`);
+            } catch (error) {
+              console.warn(`Failed to play audio from peer ${peerId} automatically:`, error);
+              
+              // If user interaction has happened, try again
+              if (userInitiatedAudio.current) {
+                try {
+                  await audioElement.play();
+                  console.log(`Audio from peer ${peerId} now playing after user interaction`);
+                } catch (err) {
+                  console.error(`Still failed to play audio from peer ${peerId}:`, err);
+                }
+              }
+            }
+          };
+          
+          playAudio();
+          
+          // Also try to play when user interacts next
+          const handleUserInteractionForPlay = async () => {
+            try {
+              await audioElement.play();
+              console.log(`Audio from peer ${peerId} playing after interaction`);
+              document.removeEventListener('click', handleUserInteractionForPlay);
+            } catch (err) {
+              console.error(`Error playing audio after interaction for peer ${peerId}:`, err);
+            }
+          };
+          
+          document.addEventListener('click', handleUserInteractionForPlay, { once: true });
         },
         (peerId) => {
           console.log(`AudioProvider: Peer ${peerId} disconnected`);
@@ -142,7 +145,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
           // Remove the audio element
           const audioElement = document.getElementById(`audio-${peerId}`);
           if (audioElement) {
-            document.body.removeChild(audioElement);
+            try {
+              document.body.removeChild(audioElement);
+            } catch (err) {
+              console.warn(`Error removing audio element for peer ${peerId}:`, err);
+            }
           }
         }
       );
@@ -159,9 +166,9 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
           // If role changed for current user, update speaking state
           if (payload.new.user_id === user.id) {
             const newRole = payload.new.role;
-            if ((newRole === 'listener' && isSpeaking) || 
-                ((newRole === 'host' || newRole === 'speaker') && !isSpeaking)) {
-              console.log(`Role changed to ${newRole}, updating speaking capability`);
+            if ((newRole === 'listener' && isSpeaking)) {
+              console.log(`Role changed to listener, disabling speaking`);
+              enableSpeaking(false);
             }
           }
         })
@@ -198,13 +205,17 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
         
         // Remove any remaining audio elements
         document.querySelectorAll('[id^="audio-"]').forEach(element => {
-          document.body.removeChild(element);
+          try {
+            document.body.removeChild(element);
+          } catch (err) {
+            console.warn(`Error removing audio element:`, err);
+          }
         });
         
         setActiveSpeakers([]);
       };
     }
-  }, [user?.id, spaceId, handleAudioActivity]);
+  }, [user?.id, spaceId]);
   
   const enableSpeaking = async (enable: boolean) => {
     if (!user?.id) {
@@ -235,10 +246,52 @@ export const AudioProvider: React.FC<{ children: React.ReactNode, spaceId: strin
             return prev;
           });
         }
+        
+        // Update participant role in database
+        if (spaceId) {
+          const { data: participant } = await supabase
+            .from('space_participants')
+            .select('id, role')
+            .eq('space_id', spaceId)
+            .eq('user_id', user.id)
+            .single();
+            
+          if (participant && participant.role === 'listener') {
+            const { error } = await supabase
+              .from('space_participants')
+              .update({ role: 'speaker' })
+              .eq('id', participant.id);
+              
+            if (error) {
+              console.error('Error updating participant role:', error);
+            }
+          }
+        }
       } else if (!enable) {
         // Remove self from active speakers when disabling speaking
         if (user?.id) {
           setActiveSpeakers(prev => prev.filter(id => id !== user.id));
+        }
+        
+        // Update participant role in database if not host
+        if (spaceId) {
+          const { data: participant } = await supabase
+            .from('space_participants')
+            .select('id, role')
+            .eq('space_id', spaceId)
+            .eq('user_id', user.id)
+            .single();
+            
+          if (participant && participant.role === 'speaker') {
+            const { error } = await supabase
+              .from('space_participants')
+              .update({ role: 'listener' })
+              .eq('id', participant.id);
+              
+            if (error) {
+              console.error('Error updating participant role:', error);
+            }
+          }
         }
       }
       

@@ -12,7 +12,6 @@ import {
   VStack,
   Card,
   CardBody,
-  Avatar,
   Flex,
   IconButton,
   useDisclosure,
@@ -56,11 +55,11 @@ const ProfilePage = () => {
   const [loadingSpaces, setLoadingSpaces] = useState(false);
   const [followers, setFollowers] = useState<number>(0);
   const [following, setFollowing] = useState<number>(0);
-  const [isEditMode, setIsEditMode] = useState(false);
   
   const navigate = useNavigate();
   const toast = useToast();
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isEditOpen, onOpen: onEditOpen, onClose: onEditClose } = useDisclosure();
+  const { isOpen: isAvatarOpen, onOpen: onAvatarOpen, onClose: onAvatarClose } = useDisclosure();
 
   useEffect(() => {
     if (profile) {
@@ -153,11 +152,6 @@ const ProfilePage = () => {
 
       if (error) throw error;
 
-      // Process file upload if there's a selected file
-      if (selectedFile) {
-        await handleFileUpload();
-      }
-
       // Refresh the profile data
       if (refreshProfile) {
         await refreshProfile();
@@ -171,8 +165,8 @@ const ProfilePage = () => {
         isClosable: true,
       });
       
-      // Exit edit mode after saving
-      setIsEditMode(false);
+      // Close edit modal
+      onEditClose();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -248,6 +242,11 @@ const ProfilePage = () => {
       // Update state
       setAvatarUrl(publicURL.publicUrl);
       
+      // Refresh profile to update the avatar across the app
+      if (refreshProfile) {
+        await refreshProfile();
+      }
+      
       toast({
         title: "Avatar updated",
         description: "Your profile picture has been updated",
@@ -267,7 +266,7 @@ const ProfilePage = () => {
       });
     } finally {
       setUploadLoading(false);
-      onClose();
+      onAvatarClose();
     }
   };
 
@@ -279,7 +278,7 @@ const ProfilePage = () => {
   return (
     <Layout>
       <Container maxW="6xl" py={6}>
-        <Card bg="white" shadow="md" borderRadius="lg" overflow="hidden" mb={6}>
+        <Card bg="white" shadow="md" borderRadius="lg" overflow="hidden">
           <CardBody>
             {/* Profile Header Section */}
             <Box bg="purple.100" h="100px" position="relative" mb={10} />
@@ -304,7 +303,7 @@ const ProfilePage = () => {
                   position="absolute"
                   bottom={2}
                   right={0}
-                  onClick={onOpen}
+                  onClick={onAvatarOpen}
                 />
               </Box>
               
@@ -316,16 +315,16 @@ const ProfilePage = () => {
                   mt={2} 
                   size="sm"
                   colorScheme="purple"
-                  variant="outline"
-                  onClick={() => setIsEditMode(!isEditMode)}
+                  leftIcon={<EditIcon />}
+                  onClick={onEditOpen}
                 >
-                  {isEditMode ? 'Cancel Editing' : 'Edit Profile'}
+                  Edit Profile
                 </Button>
               </VStack>
             </Flex>
 
             {/* Stats Section */}
-            <Flex p={4} justify="space-around" textAlign="center" mt={2} mb={4}>
+            <Flex p={4} justify="space-around" textAlign="center" mt={2} mb={6} bg="gray.50" borderRadius="md">
               <Stat>
                 <StatLabel fontSize="xs" color="gray.500">Followers</StatLabel>
                 <HStack justify="center" spacing={1}>
@@ -353,59 +352,8 @@ const ProfilePage = () => {
             
             <Divider mb={6} />
 
-            {/* Edit Profile Section - Only visible when in edit mode */}
-            {isEditMode && (
-              <Box mb={6}>
-                <Heading size="md" mb={4}>Edit Profile</Heading>
-                <form onSubmit={handleSubmit}>
-                  <VStack spacing={4} align="stretch">
-                    <FormControl>
-                      <FormLabel>Full Name</FormLabel>
-                      <Input
-                        value={formData.fullName}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          fullName: e.target.value
-                        }))}
-                        placeholder="Enter your full name"
-                        size="lg"
-                        focusBorderColor="purple.400"
-                      />
-                    </FormControl>
-
-                    <FormControl>
-                      <FormLabel>Username</FormLabel>
-                      <Input
-                        value={formData.username}
-                        onChange={(e) => setFormData(prev => ({
-                          ...prev,
-                          username: e.target.value
-                        }))}
-                        placeholder="Choose a username"
-                        size="lg"
-                        focusBorderColor="purple.400"
-                      />
-                    </FormControl>
-
-                    <Button
-                      type="submit"
-                      isLoading={isLoading}
-                      loadingText="Updating..."
-                      colorScheme="purple"
-                      size="lg"
-                      width="full"
-                      fontSize="md"
-                    >
-                      Save Changes
-                    </Button>
-                  </VStack>
-                </form>
-                <Divider my={6} />
-              </Box>
-            )}
-
             {/* My Spaces Section */}
-            <Box>
+            <Box mb={6}>
               <Heading size="md" mb={4}>My Hosted Spaces</Heading>
               {loadingSpaces ? (
                 <Flex justify="center" p={8}>
@@ -470,8 +418,63 @@ const ProfilePage = () => {
         </Card>
       </Container>
 
+      {/* Edit Profile Modal */}
+      <Modal isOpen={isEditOpen} onClose={onEditClose}>
+        <ModalOverlay />
+        <ModalContent>
+          <ModalHeader>Edit Profile</ModalHeader>
+          <ModalCloseButton />
+          <ModalBody>
+            <form onSubmit={handleSubmit}>
+              <VStack spacing={4} align="stretch">
+                <FormControl>
+                  <FormLabel>Full Name</FormLabel>
+                  <Input
+                    value={formData.fullName}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      fullName: e.target.value
+                    }))}
+                    placeholder="Enter your full name"
+                    size="lg"
+                    focusBorderColor="purple.400"
+                  />
+                </FormControl>
+
+                <FormControl>
+                  <FormLabel>Username</FormLabel>
+                  <Input
+                    value={formData.username}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      username: e.target.value
+                    }))}
+                    placeholder="Choose a username"
+                    size="lg"
+                    focusBorderColor="purple.400"
+                  />
+                </FormControl>
+              </VStack>
+            </form>
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="ghost" mr={3} onClick={onEditClose}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmit}
+              isLoading={isLoading}
+              loadingText="Updating..."
+              colorScheme="purple"
+            >
+              Save Changes
+            </Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
       {/* Avatar Update Modal */}
-      <Modal isOpen={isOpen} onClose={onClose}>
+      <Modal isOpen={isAvatarOpen} onClose={onAvatarClose}>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Change Profile Picture</ModalHeader>
@@ -515,7 +518,7 @@ const ProfilePage = () => {
             <Button 
               variant="ghost" 
               mr={3} 
-              onClick={onClose}
+              onClick={onAvatarClose}
               isDisabled={uploadLoading}
             >
               Cancel

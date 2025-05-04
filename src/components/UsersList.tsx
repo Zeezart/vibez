@@ -5,7 +5,6 @@ import {
   VStack, 
   HStack, 
   Text, 
-  Avatar, 
   Flex, 
   Badge,
   Tooltip,
@@ -14,6 +13,7 @@ import {
 import { Mic, MicOff } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { keyframes } from '@emotion/react';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface User {
   id: string;
@@ -70,11 +70,14 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
               return (
                 <Tooltip key={id} label={`${user.name} is speaking`}>
                   <Avatar 
-                    name={user.name} 
-                    src={user.image}
-                    borderColor="green.400"
-                    borderWidth="2px"
-                  />
+                    className="border-2 border-green-400"
+                  >
+                    {user.image ? (
+                      <AvatarImage src={user.image} alt={user.name} />
+                    ) : (
+                      <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    )}
+                  </Avatar>
                 </Tooltip>
               );
             })}
@@ -113,16 +116,14 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
               <Tooltip label={user.isMuted ? 'Muted' : (isActive ? 'Speaking' : 'Not Speaking')} placement="top">
                 <Box position="relative">
                   <Avatar 
-                    size="md" 
-                    name={user.name} 
-                    src={user.image} 
-                    borderWidth={isActive ? 2 : 0}
-                    borderColor="green.400"
-                    animation={isActive ? `${pulseAnimation} 2s infinite` : 'none'}
-                    css={isActive ? {
-                      animation: `${pulseAnimation} 2s infinite`
-                    } : {}}
-                  />
+                    className={`h-10 w-10 ${isActive ? "border-2 border-green-400" : ""} ${isActive ? "animate-pulse" : ""}`}
+                  >
+                    {user.image ? (
+                      <AvatarImage src={user.image} alt={user.name} />
+                    ) : (
+                      <AvatarFallback>{user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    )}
+                  </Avatar>
                   {(user.role === 'host' || user.role === 'speaker') && (
                     <Flex 
                       position="absolute" 

@@ -1,10 +1,10 @@
-
 import { supabase } from '../integrations/supabase/client';
 
 export interface Peer {
   id: string;
   stream?: MediaStream;
   connection?: RTCPeerConnection;
+  audioElement?: HTMLAudioElement;
 }
 
 class WebRTCService {
@@ -17,10 +17,35 @@ class WebRTCService {
   private speakingEnabled = false;
   private realtimeChannel: any = null;
   private isInitialized = false;
+  private audioContext: AudioContext | null = null;
+  private audioAnalyser: AnalyserNode | null = null;
+  private speakingDetectionInterval: number | null = null;
   
   constructor() {
     console.log("WebRTCService constructor called");
     // Setup will be done in initialize method
+    
+    // Prevent audio context auto-suspension by keeping a reference
+    this.initializeAudioContext();
+  }
+
+  private initializeAudioContext() {
+    try {
+      // Create AudioContext for audio processing and analysis
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      console.log("AudioContext initialized:", this.audioContext.state);
+      
+      // Resume context on user interaction to overcome browser autoplay restrictions
+      document.addEventListener('click', () => {
+        if (this.audioContext && this.audioContext.state === 'suspended') {
+          this.audioContext.resume().then(() => {
+            console.log("AudioContext resumed after user interaction");
+          });
+        }
+      }, { once: true });
+    } catch (error) {
+      console.error("Failed to initialize AudioContext:", error);
+    }
   }
 
   private setupRealtimeListeners() {
@@ -67,6 +92,16 @@ class WebRTCService {
     this.spaceId = spaceId;
     this.localUserId = userId;
     this.isInitialized = true;
+    
+    // Make sure AudioContext is active
+    if (this.audioContext && this.audioContext.state === 'suspended') {
+      try {
+        await this.audioContext.resume();
+        console.log("AudioContext resumed on initialization");
+      } catch (error) {
+        console.warn("Could not resume AudioContext:", error);
+      }
+    }
     
     this.setupRealtimeListeners();
     
@@ -145,6 +180,9 @@ class WebRTCService {
         
         console.log("Microphone access granted:", this.localStream);
         
+        // Set up audio analysis for detecting when the user is speaking
+        this.setupSpeakingDetection();
+        
         // Announce that this user is now a speaker
         await this.broadcastSpeakerUpdate(true);
         
@@ -183,6 +221,9 @@ class WebRTCService {
         this.localStream = null;
       }
       
+      // Clear speaking detection
+      this.clearSpeakingDetection();
+      
       // Disconnect from all peers
       this.disconnectFromAllPeers();
       
@@ -201,6 +242,125 @@ class WebRTCService {
     this.localStream.getAudioTracks().forEach(track => {
       track.enabled = !muted;
     });
+    
+    // If muted, trigger the speaking detection to update speaking status
+    if (muted && this.speakingDetectionInterval) {
+      this.stopSpeakingNotification();
+    }
+  }
+
+  private setupSpeakingDetection() {
+    // Clear previous detection if any
+    this.clearSpeakingDetection();
+    
+    if (!this.audioContext || !this.localStream) return;
+    
+    try {
+      // Create analyzer
+      this.audioAnalyser = this.audioContext.createAnalyser();
+      this.audioAnalyser.fftSize = 256;
+      this.audioAnalyser.smoothingTimeConstant = 0.8;
+      
+      // Connect local stream to analyzer
+      const source = this.audioContext.createMediaStreamSource(this.localStream);
+      source.connect(this.audioAnalyser);
+      
+      const bufferLength = this.audioAnalyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      
+      // Set up interval for checking audio levels
+      this.speakingDetectionInterval = window.setInterval(() => {
+        if (!this.audioAnalyser) return;
+        
+        this.audioAnalyser.getByteFrequencyData(dataArray);
+        
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+          sum += dataArray[i];
+        }
+        
+        const average = sum / bufferLength;
+        const threshold = 20; // Adjust this value based on testing
+        
+        // Check if local stream exists and if its audio tracks are enabled (not muted)
+        const isAudioEnabled = this.localStream && 
+          this.localStream.getAudioTracks().some(track => track.enabled);
+        
+        if (average > threshold && isAudioEnabled) {
+          this.startSpeakingNotification();
+        } else {
+          this.stopSpeakingNotification();
+        }
+      }, 100);
+      
+      console.log("Speaking detection set up");
+    } catch (error) {
+      console.error("Error setting up speaking detection:", error);
+    }
+  }
+
+  private clearSpeakingDetection() {
+    if (this.speakingDetectionInterval) {
+      clearInterval(this.speakingDetectionInterval);
+      this.speakingDetectionInterval = null;
+    }
+    
+    if (this.audioAnalyser) {
+      this.audioAnalyser = null;
+    }
+  }
+
+  private isSpeaking = false;
+  private speakingDebounceTimeout: any = null;
+
+  private startSpeakingNotification() {
+    if (!this.isSpeaking) {
+      this.isSpeaking = true;
+      console.log("User started speaking");
+      
+      // Broadcast the speaking status
+      if (this.spaceId && this.localUserId) {
+        supabase
+          .channel(`space-${this.spaceId}`)
+          .send({
+            type: 'broadcast',
+            event: 'user-speaking',
+            payload: { userId: this.localUserId, isSpeaking: true }
+          })
+          .catch(error => console.error("Error broadcasting speaking status:", error));
+      }
+      
+      // Clear any pending timeout
+      if (this.speakingDebounceTimeout) {
+        clearTimeout(this.speakingDebounceTimeout);
+      }
+    }
+  }
+
+  private stopSpeakingNotification() {
+    if (this.isSpeaking) {
+      // Debounce the stop speaking notification to avoid flickering
+      if (this.speakingDebounceTimeout) {
+        clearTimeout(this.speakingDebounceTimeout);
+      }
+      
+      this.speakingDebounceTimeout = setTimeout(() => {
+        this.isSpeaking = false;
+        console.log("User stopped speaking");
+        
+        // Broadcast the speaking status
+        if (this.spaceId && this.localUserId) {
+          supabase
+            .channel(`space-${this.spaceId}`)
+            .send({
+              type: 'broadcast',
+              event: 'user-speaking',
+              payload: { userId: this.localUserId, isSpeaking: false }
+            })
+            .catch(error => console.error("Error broadcasting speaking status:", error));
+        }
+      }, 300); // Debounce delay
+    }
   }
 
   private async broadcastSpeakerUpdate(isSpeaking: boolean) {
@@ -217,6 +377,39 @@ class WebRTCService {
           payload: { userId: this.localUserId }
         });
       console.log(`Successfully broadcast speaker ${isSpeaking ? 'join' : 'leave'} event`);
+      
+      // Also update the space_participants table
+      const { data: participantData, error: fetchError } = await supabase
+        .from('space_participants')
+        .select('id, role')
+        .eq('space_id', this.spaceId)
+        .eq('user_id', this.localUserId)
+        .single();
+      
+      if (fetchError) {
+        console.error('Error fetching participant data:', fetchError);
+        return;
+      }
+      
+      // Only update if the role needs to change
+      if (participantData) {
+        const newRole = isSpeaking ? 
+          (participantData.role === 'host' ? 'host' : 'speaker') : 
+          'listener';
+        
+        if (participantData.role !== newRole) {
+          const { error: updateError } = await supabase
+            .from('space_participants')
+            .update({ role: newRole })
+            .eq('id', participantData.id);
+          
+          if (updateError) {
+            console.error('Error updating participant role:', updateError);
+          } else {
+            console.log(`Updated participant role to ${newRole}`);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error broadcasting speaker update:', error);
     }
@@ -260,7 +453,12 @@ class WebRTCService {
           { urls: 'stun:stun1.l.google.com:19302' },
           { urls: 'stun:stun2.l.google.com:19302' },
           { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' }
+          { urls: 'stun:stun4.l.google.com:19302' },
+          {
+            urls: 'turn:global.turn.twilio.com:3478?transport=udp',
+            username: 'dummy_username',
+            credential: 'dummy_credential'
+          }
         ],
         iceCandidatePoolSize: 10
       });
@@ -292,7 +490,39 @@ class WebRTCService {
       
       peerConnection.ontrack = event => {
         console.log(`Received track from ${peerId}:`, event.streams[0]);
+        
+        // Create audio element for this peer
+        const audioElement = document.getElementById(`audio-${peerId}`) as HTMLAudioElement || new Audio();
+        audioElement.id = `audio-${peerId}`;
+        audioElement.srcObject = event.streams[0];
+        audioElement.autoplay = true;
+        
+        // Ensure audio element is in the DOM if newly created
+        if (!document.getElementById(`audio-${peerId}`)) {
+          audioElement.style.display = 'none';
+          document.body.appendChild(audioElement);
+        }
+        
+        // Ensure audio is playing
+        audioElement.play().catch(e => {
+          console.warn(`Error playing audio for peer ${peerId}:`, e);
+          
+          // Try to play on next user interaction
+          const playAudioOnInteraction = () => {
+            audioElement.play()
+              .then(() => {
+                document.removeEventListener('click', playAudioOnInteraction);
+                console.log(`Successfully playing audio for peer ${peerId} after user interaction`);
+              })
+              .catch(err => console.error(`Still can't play audio for peer ${peerId}:`, err));
+          };
+          
+          document.addEventListener('click', playAudioOnInteraction, { once: true });
+        });
+        
         peer.stream = event.streams[0];
+        peer.audioElement = audioElement;
+        
         if (this.onPeerConnectedCallback) {
           this.onPeerConnectedCallback(peerId, event.streams[0]);
         }
@@ -404,7 +634,12 @@ class WebRTCService {
             { urls: 'stun:stun1.l.google.com:19302' },
             { urls: 'stun:stun2.l.google.com:19302' },
             { urls: 'stun:stun3.l.google.com:19302' },
-            { urls: 'stun:stun4.l.google.com:19302' }
+            { urls: 'stun:stun4.l.google.com:19302' },
+            {
+              urls: 'turn:global.turn.twilio.com:3478?transport=udp',
+              username: 'dummy_username',
+              credential: 'dummy_credential'
+            }
           ],
           iceCandidatePoolSize: 10
         });
@@ -436,7 +671,39 @@ class WebRTCService {
         
         peerConnection.ontrack = event => {
           console.log(`Received track from ${peerId}:`, event.streams[0]);
+          
+          // Create audio element for this peer
+          const audioElement = document.getElementById(`audio-${peerId}`) as HTMLAudioElement || new Audio();
+          audioElement.id = `audio-${peerId}`;
+          audioElement.srcObject = event.streams[0];
+          audioElement.autoplay = true;
+          
+          // Ensure audio element is in the DOM if newly created
+          if (!document.getElementById(`audio-${peerId}`)) {
+            audioElement.style.display = 'none';
+            document.body.appendChild(audioElement);
+          }
+          
+          // Ensure audio is playing
+          audioElement.play().catch(e => {
+            console.warn(`Error playing audio for peer ${peerId}:`, e);
+            
+            // Try to play on next user interaction
+            const playAudioOnInteraction = () => {
+              audioElement.play()
+                .then(() => {
+                  document.removeEventListener('click', playAudioOnInteraction);
+                  console.log(`Successfully playing audio for peer ${peerId} after user interaction`);
+                })
+                .catch(err => console.error(`Still can't play audio for peer ${peerId}:`, err));
+            };
+            
+            document.addEventListener('click', playAudioOnInteraction, { once: true });
+          });
+          
           peer.stream = event.streams[0];
+          peer.audioElement = audioElement;
+          
           if (this.onPeerConnectedCallback) {
             this.onPeerConnectedCallback(peerId, event.streams[0]);
           }
@@ -563,6 +830,24 @@ class WebRTCService {
       peer.connection.close();
     }
     
+    // Remove the audio element
+    if (peer.audioElement) {
+      try {
+        // Stop all tracks
+        const stream = peer.audioElement.srcObject as MediaStream | null;
+        if (stream) {
+          stream.getTracks().forEach(track => track.stop());
+        }
+        
+        // Remove from DOM
+        if (document.body.contains(peer.audioElement)) {
+          document.body.removeChild(peer.audioElement);
+        }
+      } catch (e) {
+        console.warn(`Error cleaning up audio element for peer ${peerId}:`, e);
+      }
+    }
+    
     // Remove the peer from the map
     this.peers.delete(peerId);
     
@@ -591,6 +876,9 @@ class WebRTCService {
       this.localStream = null;
     }
     
+    // Clear speaking detection
+    this.clearSpeakingDetection();
+    
     // Disconnect from all peers
     this.disconnectFromAllPeers();
     
@@ -607,10 +895,20 @@ class WebRTCService {
       }
     }
     
+    // Close AudioContext
+    if (this.audioContext) {
+      try {
+        this.audioContext.close();
+      } catch (error) {
+        console.warn('Error closing AudioContext:', error);
+      }
+    }
+    
     this.spaceId = null;
     this.localUserId = null;
     this.speakingEnabled = false;
     this.isInitialized = false;
+    this.isSpeaking = false;
   }
 }
 
