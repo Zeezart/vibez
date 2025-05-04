@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Box,
@@ -39,6 +38,7 @@ import { useAuth } from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { EditIcon } from '@chakra-ui/icons';
 import { Users, Calendar, Mic } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 const ProfilePage = () => {
   const { user, profile, refreshProfile } = useAuth();
