@@ -28,7 +28,12 @@ const UserProfileCard: React.FC<UserProfileCardProps> = memo(({
 }) => {
   return (
     <HStack spacing={4} p={3} borderWidth="1px" borderRadius="md">
-      <Avatar name={name} src={avatarUrl} size="md" />
+      <Avatar 
+        name={name} 
+        src={avatarUrl || undefined} 
+        size="md"
+        bgColor="blue.500"
+      />
       <VStack align="start" spacing={0} flex={1}>
         <Text fontWeight="bold">{name}</Text>
         {username && <Text color="gray.500">@{username}</Text>}
