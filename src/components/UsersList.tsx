@@ -9,11 +9,11 @@ import {
   Flex, 
   Badge,
   Tooltip,
-  AvatarGroup,
-  keyframes
+  AvatarGroup
 } from '@chakra-ui/react';
 import { Mic, MicOff } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
+import { keyframes } from '@emotion/react';
 
 interface User {
   id: string;
@@ -119,6 +119,9 @@ const UsersList: React.FC<UsersListProps> = ({ users, type }) => {
                     borderWidth={isActive ? 2 : 0}
                     borderColor="green.400"
                     animation={isActive ? `${pulseAnimation} 2s infinite` : 'none'}
+                    css={isActive ? {
+                      animation: `${pulseAnimation} 2s infinite`
+                    } : {}}
                   />
                   {(user.role === 'host' || user.role === 'speaker') && (
                     <Flex 

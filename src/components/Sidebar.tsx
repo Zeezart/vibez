@@ -36,6 +36,8 @@ const Sidebar: React.FC = () => {
       to={path}
       width="100%"
       transition="all 0.2s"
+      position="relative"
+      zIndex={1}
     >
       {React.cloneElement(icon, { 
         size: 18,
@@ -55,6 +57,8 @@ const Sidebar: React.FC = () => {
       pt="3"
       display="flex"
       flexDirection="column"
+      position="relative"
+      zIndex={1}
     >
       {user && profile && (
         <Link to="/profile">
