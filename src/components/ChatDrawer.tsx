@@ -1,21 +1,18 @@
 
 import React from 'react';
-import { Button, Box } from '@chakra-ui/react';
+import { Button, Box, useDisclosure } from '@chakra-ui/react';
 import { MessageSquare, X } from 'lucide-react';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerTrigger,
-} from "@/components/ui/drawer";
 import RealTimeChat from './RealTimeChat';
+import { useIsMobile } from '../hooks/use-mobile';
 
 interface ChatDrawerProps {
   spaceId: string;
 }
 
 const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
-  const [isOpen, setIsOpen] = React.useState(false);
-
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const isMobile = useIsMobile();
+  
   return (
     <>
       {!isOpen && (
@@ -28,7 +25,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
           width="50px"
           height="50px"
           p={0}
-          onClick={() => setIsOpen(true)}
+          onClick={onOpen}
           zIndex={5}
           boxShadow="0 4px 12px rgba(0,0,0,0.15)"
         >
@@ -54,7 +51,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
             <Button 
               variant="ghost" 
               size="sm" 
-              onClick={() => setIsOpen(false)}
+              onClick={onClose}
               p={1}
             >
               <X size={20} />
