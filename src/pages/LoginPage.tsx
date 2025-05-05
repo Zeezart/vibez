@@ -51,7 +51,7 @@ const LoginPage = () => {
         isClosable: true,
       });
       
-      navigate('/');
+      navigate('/spaces');
     } catch (error: any) {
       toast({
         title: "Error",

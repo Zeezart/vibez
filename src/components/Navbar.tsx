@@ -47,7 +47,7 @@ const Navbar: React.FC = () => {
         />
 
         <Link to="/">
-          <Heading size="md" color="brand.600">SpaceChat</Heading>
+          <Heading size="md" color="brand.600">Vibez</Heading>
         </Link>
 
         <Flex alignItems="center">

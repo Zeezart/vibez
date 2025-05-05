@@ -36,22 +36,7 @@ const Layout: React.FC<LayoutProps> = ({ children, showSidebar = true }) => {
               <Sidebar />
             </Box>
             
-            {/* Mobile Sidebar Trigger */}
-            <IconButton
-              aria-label="Open menu"
-              icon={<Menu size={24} />}
-              display={{ base: 'flex', md: 'none' }}
-              position="fixed"
-              bottom="20px"
-              right="20px"
-              zIndex="20"
-              colorScheme="purple"
-              borderRadius="full"
-              boxShadow="lg"
-              onClick={onOpen}
-              size="lg"
-            />
-            
+          
             {/* Mobile Sidebar Drawer */}
             <Drawer 
               isOpen={isOpen} 

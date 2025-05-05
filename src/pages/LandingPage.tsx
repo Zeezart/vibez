@@ -73,7 +73,7 @@ const LandingPage: React.FC = () => {
                 </Text>
               </Heading>
               <Text color={'gray.500'}>
-                Join SpaceChat, where you can host and participate in live audio conversations.
+                Join Vibez, where you can host and participate in live audio conversations.
                 Discuss topics that matter to you, network with like-minded individuals, and
                 build your community through the power of voice.
               </Text>
