@@ -36,7 +36,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
       {isOpen && (
         <Box
           position="fixed"
-          top={0}
+          top="4rem"
           bottom={0}
           right={0}
           width={{ base: "100%", md: "400px" }}
