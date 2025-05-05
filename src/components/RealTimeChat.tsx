@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
@@ -48,8 +49,8 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
   useEffect(() => {
     fetchMessages();
     
-    // Set up real-time subscription
-    const channel = supabase
+    // Set up real-time subscription for new messages
+    const messagesChannel = supabase
       .channel('public:space_messages')
       .on('postgres_changes', 
         { 
@@ -64,11 +65,36 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
         }
       )
       .subscribe();
+    
+    // Set up real-time subscription for space status changes
+    const spacesChannel = supabase
+      .channel('public:spaces')
+      .on('postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'spaces',
+          filter: `id=eq.${spaceId}`
+        },
+        (payload) => {
+          if (payload.new && payload.new.status === 'ended') {
+            toast({
+              title: "Space has ended",
+              description: "The host has ended this space",
+              status: "info",
+              duration: 5000,
+              isClosable: true,
+            });
+          }
+        }
+      )
+      .subscribe();
       
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(spacesChannel);
     };
-  }, [spaceId]);
+  }, [spaceId, toast]);
   
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -148,7 +174,24 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
       display="flex" 
       flexDirection="column"
     >
-      <Box flex="1" overflowY="auto" p={4}>
+      <Box 
+        flex="1" 
+        overflowY="auto" 
+        p={4} 
+        className="custom-scrollbar"
+        css={{
+          '&::-webkit-scrollbar': {
+            width: '4px',
+          },
+          '&::-webkit-scrollbar-track': {
+            width: '6px',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            background: '#9b87f5',
+            borderRadius: '24px',
+          },
+        }}
+      >
         <VStack spacing={4} align="stretch">
           {messages.length > 0 ? (
             messages.map((message) => (
@@ -156,6 +199,7 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
                 key={message.id}
                 alignSelf={message.user_id === user?.id ? 'flex-end' : 'flex-start'}
                 maxWidth="80%"
+                className="fade-in"
               >
                 <HStack 
                   spacing={2} 
@@ -166,6 +210,7 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
                     size="sm" 
                     name={message.user.full_name} 
                     src={message.user.avatar_url || undefined}
+                    bg="purple.400"
                   />
                   <Box>
                     <HStack 
@@ -183,6 +228,7 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
                       bg={message.user_id === user?.id ? 'purple.100' : 'gray.100'}
                       p={3}
                       borderRadius="lg"
+                      boxShadow="0 1px 2px rgba(0,0,0,0.05)"
                     >
                       <Text>{message.text}</Text>
                     </Box>
@@ -201,13 +247,16 @@ const RealTimeChat: React.FC<RealTimeChatProps> = ({ spaceId }) => {
       
       <Divider />
       
-      <Box p={4}>
+      <Box p={4} bg="gray.50">
         <HStack>
           <Input
             placeholder="Type your message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+            bg="white"
+            borderColor="gray.300"
+            _focus={{ borderColor: 'purple.400', boxShadow: '0 0 0 1px #9b87f5' }}
           />
           <Button 
             colorScheme="purple" 

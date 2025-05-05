@@ -27,9 +27,9 @@ const UserProfileCard: React.FC<UserProfileCardProps> = memo(({
   };
 
   return (
-    <HStack spacing={4} p={3} borderWidth="1px" borderRadius="md">
+    <HStack spacing={4} p={3} borderWidth="1px" borderRadius="md" bg="white" shadow="sm">
       <div className="h-12 w-12">
-        <Avatar className="h-12 w-12 bg-blue-500">
+        <Avatar className="h-12 w-12 bg-purple-500">
           {avatarUrl ? (
             <AvatarImage src={avatarUrl} alt={name} />
           ) : (

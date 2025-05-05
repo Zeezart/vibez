@@ -45,6 +45,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
           boxShadow="-4px 0 12px rgba(0,0,0,0.1)"
           display="flex"
           flexDirection="column"
+          transition="transform 0.3s ease-in-out"
         >
           <Box p={4} borderBottom="1px solid" borderColor="gray.200" display="flex" justifyContent="space-between" alignItems="center">
             <Box fontWeight="bold">Space Chat</Box>
