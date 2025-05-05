@@ -9,29 +9,6 @@ interface ChatDrawerProps {
   spaceId: string;
 }
 
-interface ChatDrawerContentProps {
-  spaceId: string;
-  isMobile?: boolean;
-}
-
-// Extract the chat content to a separate component for reuse
-export const ChatDrawerContent: React.FC<ChatDrawerContentProps> = ({ spaceId, isMobile = false }) => {
-  return (
-    <Box
-      width="100%"
-      height="100%"
-      bg="white"
-      display="flex"
-      flexDirection="column"
-      className={!isMobile ? "glass-effect" : ""}
-    >
-      <Box flex="1" display="flex" overflow="hidden" p={0}>
-        <RealTimeChat spaceId={spaceId} />
-      </Box>
-    </Box>
-  );
-};
-
 const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const isMobile = useIsMobile();
@@ -39,7 +16,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
   return (
     <>
       {/* Chat Button - shown when drawer is closed */}
-      {!isOpen && !isMobile && (
+      {!isOpen && (
         <Button
           position="fixed"
           bottom="20px"
@@ -72,6 +49,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
           display="flex"
           flexDirection="column"
           transition="transform 0.3s ease-in-out"
+          className="glass-effect"
         >
           <Box p={4} borderBottom="1px solid" borderColor="gray.200" display="flex" justifyContent="space-between" alignItems="center">
             <Box fontWeight="bold">Space Chat</Box>
@@ -85,7 +63,9 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
               <X size={20} />
             </Button>
           </Box>
-          <ChatDrawerContent spaceId={spaceId} />
+          <Box flex="1" display="flex" overflow="hidden" p={0}>
+            <RealTimeChat spaceId={spaceId} />
+          </Box>
         </Box>
       )}
     </>

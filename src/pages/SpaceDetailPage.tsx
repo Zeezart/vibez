@@ -20,7 +20,6 @@ import ChatDrawer from '../components/ChatDrawer';
 import { useAuth } from '../context/AuthContext';
 import { AudioProvider } from '../context/AudioContext';
 import { useSpaceDetail } from '../features/spaces/hooks/useSpaceDetail';
-import { useIsMobile } from '../hooks/use-mobile';
 
 // Import refactored components
 import SpaceHeader from '../features/spaces/components/SpaceHeader';
@@ -35,7 +34,6 @@ const SpaceDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
-  const isMobile = useIsMobile();
   
   const {
     space,
@@ -166,7 +164,7 @@ const SpaceDetailPage: React.FC = () => {
         </Container>
 
         {/* Chat drawer that can be toggled */}
-        {!isMobile && <ChatDrawer spaceId={id as string} />}
+        <ChatDrawer spaceId={id as string} />
 
         {/* Space Details Modal */}
         <SpaceDetailsModal 
