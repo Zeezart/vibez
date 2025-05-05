@@ -29,6 +29,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
           onClick={onOpen}
           zIndex={5}
           boxShadow="0 4px 12px rgba(0,0,0,0.15)"
+          aria-label="Open chat"
         >
           <MessageSquare size={24} />
         </Button>
