@@ -15,6 +15,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
   
   return (
     <>
+      {/* Chat Button - shown when drawer is closed */}
       {!isOpen && (
         <Button
           position="fixed"
@@ -33,6 +34,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
         </Button>
       )}
 
+      {/* Chat Drawer - shown when open */}
       {isOpen && (
         <Box
           position="fixed"
@@ -46,6 +48,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
           display="flex"
           flexDirection="column"
           transition="transform 0.3s ease-in-out"
+          className="glass-effect"
         >
           <Box p={4} borderBottom="1px solid" borderColor="gray.200" display="flex" justifyContent="space-between" alignItems="center">
             <Box fontWeight="bold">Space Chat</Box>
@@ -54,6 +57,7 @@ const ChatDrawer: React.FC<ChatDrawerProps> = ({ spaceId }) => {
               size="sm" 
               onClick={onClose}
               p={1}
+              aria-label="Close chat"
             >
               <X size={20} />
             </Button>
