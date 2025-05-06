@@ -18,15 +18,18 @@ import {
   MenuButton,
   MenuList,
   MenuItem,
-  MenuDivider
+  MenuDivider,
+  Tooltip
 } from '@chakra-ui/react';
-import { HamburgerIcon } from '@chakra-ui/icons';
+import { HamburgerIcon, SearchIcon } from '@chakra-ui/icons';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Sidebar from './Sidebar';
+import UserSearchModal from './UserSearchModal';
 
 const Navbar: React.FC = () => {
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { isOpen: isSidebarOpen, onOpen: onSidebarOpen, onClose: onSidebarClose } = useDisclosure();
+  const { isOpen: isSearchOpen, onOpen: onSearchOpen, onClose: onSearchClose } = useDisclosure();
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
 
@@ -40,7 +43,7 @@ const Navbar: React.FC = () => {
       <Flex h={16} alignItems="center" justifyContent="space-between">
         <IconButton
           display={{ base: 'flex', md: 'none' }}
-          onClick={onOpen}
+          onClick={onSidebarOpen}
           variant="outline"
           aria-label="open menu"
           icon={<HamburgerIcon />}
@@ -51,6 +54,18 @@ const Navbar: React.FC = () => {
         </Link>
 
         <Flex alignItems="center">
+          {user && (
+            <Tooltip label="Search Users" hasArrow placement="bottom">
+              <IconButton
+                variant="ghost"
+                mr={3}
+                icon={<SearchIcon />}
+                aria-label="Search users"
+                onClick={onSearchOpen}
+              />
+            </Tooltip>
+          )}
+          
           {user && profile ? (
             <Menu>
               <MenuButton
@@ -82,7 +97,7 @@ const Navbar: React.FC = () => {
         </Flex>
       </Flex>
 
-      <Drawer isOpen={isOpen} placement="left" onClose={onClose}>
+      <Drawer isOpen={isSidebarOpen} placement="left" onClose={onSidebarClose}>
         <DrawerOverlay />
         <DrawerContent>
           <DrawerCloseButton />
@@ -92,6 +107,9 @@ const Navbar: React.FC = () => {
           </DrawerBody>
         </DrawerContent>
       </Drawer>
+      
+      {/* User Search Modal */}
+      <UserSearchModal isOpen={isSearchOpen} onClose={onSearchClose} />
     </Box>
   );
 };
