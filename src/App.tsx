@@ -22,7 +22,7 @@ import ScheduledPage from "./pages/ScheduledPage";
 import SettingsPage from "./pages/SettingsPage";
 import JoinPage from "./pages/JoinPage";
 
-import SupabaseInitCheck from "./components/SupabaseInitCheck";
+import SupabaseWrapper from "./components/SupabaseWrapper";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +32,7 @@ function App() {
       <ChakraProvider theme={theme}>
         <Router>
           <AuthProvider>
-            <SupabaseInitCheck>
+            <SupabaseWrapper>
               <Routes>
                 <Route path="/" element={<Index />} />
                 <Route path="/landing" element={<LandingPage />} />
@@ -49,7 +49,7 @@ function App() {
                 <Route path="/settings" element={<SettingsPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </SupabaseInitCheck>
+            </SupabaseWrapper>
           </AuthProvider>
         </Router>
         <Toaster />
