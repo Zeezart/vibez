@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -13,12 +13,6 @@ import {
   useDisclosure,
   useClipboard,
   useToast,
-  AlertDialog,
-  AlertDialogOverlay,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogBody,
-  AlertDialogFooter,
 } from '@chakra-ui/react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
@@ -26,8 +20,6 @@ import ChatDrawer from '../components/ChatDrawer';
 import { useAuth } from '../context/AuthContext';
 import { AudioProvider } from '../context/AudioContext';
 import { useSpaceDetail } from '../features/spaces/hooks/useSpaceDetail';
-import { supabase } from '../integrations/supabase/client';
-import { useRef } from 'react';
 
 // Import refactored components
 import SpaceHeader from '../features/spaces/components/SpaceHeader';
@@ -39,8 +31,6 @@ import SpaceDetailsModal from '../features/spaces/components/SpaceDetailsModal';
 const SpaceDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [isSpaceEndedAlertOpen, setIsSpaceEndedAlertOpen] = useState(false);
-  const cancelRef = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
   const toast = useToast();
   const { user } = useAuth();
@@ -64,38 +54,6 @@ const SpaceDetailPage: React.FC = () => {
 
   // Use clipboard for share functionality
   const { onCopy } = useClipboard(`${window.location.origin}/space/${id}`);
-
-  // Subscribe to realtime updates for the space status
-  useEffect(() => {
-    if (!id) return;
-
-    // Listen for changes to the space status
-    const channel = supabase
-      .channel(`space_status_${id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'spaces',
-          filter: `id=eq.${id}`
-        },
-        (payload) => {
-          if (payload.new && payload.new.status === 'ended' && payload.old.status !== 'ended') {
-            // If the space was ended and we're not the host
-            if (user && space && space.host.id !== user.id) {
-              setIsSpaceEndedAlertOpen(true);
-              leaveSpace();
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    }
-  }, [id, user, space, leaveSpace]);
 
   const shareSpace = useCallback(() => {
     onCopy();
@@ -121,11 +79,6 @@ const SpaceDetailPage: React.FC = () => {
       });
     }
   }, [joinLink, toast]);
-
-  const handleEndedSpaceClose = () => {
-    setIsSpaceEndedAlertOpen(false);
-    navigate('/spaces');
-  };
 
   if (isLoading) {
     return (
@@ -220,32 +173,6 @@ const SpaceDetailPage: React.FC = () => {
           space={space}
           copyShareLink={copyShareLink}
         />
-
-        {/* Space Ended Alert Dialog */}
-        <AlertDialog
-          isOpen={isSpaceEndedAlertOpen}
-          leastDestructiveRef={cancelRef}
-          onClose={handleEndedSpaceClose}
-          isCentered
-        >
-          <AlertDialogOverlay>
-            <AlertDialogContent>
-              <AlertDialogHeader fontSize="lg" fontWeight="bold">
-                Space Ended
-              </AlertDialogHeader>
-
-              <AlertDialogBody>
-                The host has ended this space. You have been automatically disconnected.
-              </AlertDialogBody>
-
-              <AlertDialogFooter>
-                <Button ref={cancelRef} onClick={handleEndedSpaceClose} colorScheme="purple">
-                  Return to Spaces
-                </Button>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialogOverlay>
-        </AlertDialog>
       </AudioProvider>
     </Layout>
   );
