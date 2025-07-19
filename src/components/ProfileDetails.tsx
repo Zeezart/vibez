@@ -37,6 +37,7 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userId, isOwnProfile = 
   const [loadingFollow, setLoadingFollow] = useState<boolean>(false);
   const { user } = useAuth();
   const toast = useToast();
+  console.log(profile)
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -176,6 +177,8 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userId, isOwnProfile = 
     }
   };
 
+  console.log(profile)
+
   if (isLoading) {
     return (
       <Box borderWidth="1px" borderRadius="lg" overflow="hidden" bg="white" shadow="md">
@@ -223,6 +226,7 @@ const ProfileDetails: React.FC<ProfileDetailsProps> = ({ userId, isOwnProfile = 
         <VStack spacing={1} mt={3}>
           <Text fontWeight="bold" fontSize="xl">{profile.full_name}</Text>
           <Text color="gray.500">@{profile.username}</Text>
+          
           
           {isOwnProfile ? (
             <Button

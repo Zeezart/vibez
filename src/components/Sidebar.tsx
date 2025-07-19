@@ -130,11 +130,11 @@ const Sidebar: React.FC = () => {
           label="Profile"
           icon={<Icon as={Avatar} boxSize={4} />}
         />
-        <NavItem
+        {/* <NavItem
           path="/settings"
           label="Settings"
           icon={<Icon as={SettingsIcon} />}
-        />
+        /> */}
       </VStack>
       
       <Box p="4" fontSize="xs" color="gray.500" textAlign="center">
